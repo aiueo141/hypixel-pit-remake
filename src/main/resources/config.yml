@@ -1,0 +1,68 @@
+messages:
+  join: '&6Welcome to The Pit, &e{player}&6!'
+
+# Current Pit map: Abyss, Genesis, Seasons, Elements or Castle (the rebuilt map in run/world is Seasons)
+map: 'Seasons'
+
+# How damage increases/reductions stack (also /pit damage <additive|multiplicative>)
+#   additive:       1 + sum(increases) - sum(reductions)   (Solitude -60% + Funky -40% = -100%, Billionaire III +100% cancels it)
+#   multiplicative: product of (1 + increase) and (1 - reduction)  (reverse-engineered from a recording: 1.10 x 1.05 = 1.155)
+damage:
+  stacking: 'additive'
+
+# Experimental Pit sidebar
+scoreboard:
+  enabled: true
+  title: '&f&lTHE &e&lHYPIXEL PIT'
+  # Server name shown next to the date
+  server: 'M1A'
+  footer: '&ewww.hypixel.net'
+
+# Spawn. points are "x,y,z,yaw" (Hypixel Pit respawn points from the recording).
+# If points is empty, the world spawn is used.
+spawn:
+  world: ''
+  teleport-on-join: true
+  points:
+  - '9.5,114,0.5,90'
+  - '11.5,114.6,-11.25,-135'
+  - '7,114,7,135'
+  # Players inside this area cannot attack or be attacked
+  protection:
+    enabled: true
+    center-x: 0.5
+    center-z: 0.5
+    radius: 25
+    min-y: 105
+
+# Floating text on the map: "x,y,z|text" (& color codes). Defaults are the Hypixel positions from the recording.
+holograms:
+  enabled: true
+  lines:
+  - '0.5,116.00,0.5|&eThe Hypixel Pit'
+  - '0.5,115.69,0.5|&a&lJUMP! &c&lFIGHT!'
+  - '-13.5,116.53,0.5|&d&lMYSTIC WELL'
+  - '-13.5,116.25,0.5|&7Item Enchants'
+  - '-11.5,115.28,5.5|&5&lENDER CHEST'
+  - '-11.5,115.00,5.5|&7Store items forever'
+  - '-6.5,116.91,11.5|&e&lUNLOCKED FEATURES'
+  - '-6.5,116.50,11.5|&7[&71&7] &b/respawn'
+  - '-6.5,116.19,11.5|&7[&75&7] &b/pitchat'
+  - '-6.5,115.88,11.5|&7[&910&7] &bUpgrades'
+  - '-6.5,115.59,11.5|&7[&915&7] &bEnder Chest'
+  - '-6.5,115.28,11.5|&7[&230&7] &bContracts'
+  - '-6.5,115.00,11.5|&7[&e50&7] &bStats'
+  - '-6.5,114.69,11.5|&7[&660&7] &b/trade'
+  - '-6.5,114.38,11.5|&7[&c70&7] &b/view'
+  - '-6.5,114.09,11.5|&7[&b120&7] &bPrestige'
+  - '-6.5,113.78,11.5|&7Gain levels to unlock more'
+
+# Text above and below the tab list
+tab:
+  header: '&bYou are playing on &e&lMC.HYPIXEL.NET'
+  footer: '&aRanks, Boosters & MORE! &c&lSTORE.HYPIXEL.NET'
+
+# Backups of the worlds (terrain) and plugins/Pit into <server>/backups (also /pit backup). 0 = no automatic backups
+backup:
+  interval-minutes: 60
+  keep: 10
