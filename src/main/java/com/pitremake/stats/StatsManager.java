@@ -6,8 +6,11 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Level;
 
@@ -70,6 +73,19 @@ public final class StatsManager {
     public long getXp(UUID player) {
         Long value = xp.get(player);
         return value == null ? 0 : value;
+    }
+
+    /**
+     * 今までに稼いだ XP (リーダーボード・My pit stats の XP)。プレステージで XP は 0 に戻るので、
+     * それまでのプレステージはレベル 120 まで貯めた分として足す。
+     */
+    public long getLifetimeXp(UUID player) {
+        return PitLevels.lifetimeXp(getPrestige(player), getXp(player));
+    }
+
+    /** XP の記録があるプレイヤー。 */
+    public Set<UUID> players() {
+        return Collections.unmodifiableSet(new HashSet<>(xp.keySet()));
     }
 
     public int getLevel(UUID player) {

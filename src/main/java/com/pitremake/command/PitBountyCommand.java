@@ -39,7 +39,8 @@ public final class PitBountyCommand implements TabExecutor {
             sender.sendMessage(ChatColor.RED + "Player not found.");
             return true;
         }
-        int bounty = Math.max(0, Math.min(amount / BountyRules.STEP * BountyRules.STEP, BountyRules.MAX_BOUNTY));
+        // コマンドでは上限なし (キルで自然に上がるのは 5,000g、Highlander で 10,000g まで)
+        int bounty = Math.max(0, amount / BountyRules.STEP * BountyRules.STEP);
         plugin.getBountyManager().set(target.getUniqueId(), bounty);
         plugin.getSidebar().updateAll();
         sender.sendMessage(ChatColor.GREEN + target.getName() + "'s bounty is now " + ChatColor.GOLD + bounty + "g");

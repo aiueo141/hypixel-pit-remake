@@ -27,6 +27,9 @@ public final class GoldManager {
     /** このプレステージ中に稼いだゴールド (gold.yml の grinded)。 */
     private final Map<UUID, Double> grinded = new HashMap<>();
     private static final String GRINDED_SECTION = "grinded";
+    /** 今までに稼いだゴールド (プレステージでも減らない。My pit stats の Gold Earned)。 */
+    private final Map<UUID, Double> earned = new HashMap<>();
+    private static final String EARNED_SECTION = "earned";
 
     public GoldManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -36,9 +39,10 @@ public final class GoldManager {
     public void load() {
         YamlConfiguration yaml = YamlConfiguration.loadConfiguration(file);
         for (String key : yaml.getKeys(false)) {
-            if (key.equals(GRINDED_SECTION)) {
+            if (key.equals(GRINDED_SECTION) || key.equals(EARNED_SECTION)) {
+                Map<UUID, Double> target = key.equals(GRINDED_SECTION) ? grinded : earned;
                 for (String id : yaml.getConfigurationSection(key).getKeys(false)) {
-                    grinded.put(UUID.fromString(id), yaml.getDouble(key + "." + id));
+                    target.put(UUID.fromString(id), yaml.getDouble(key + "." + id));
                 }
                 continue;
             }
@@ -53,6 +57,9 @@ public final class GoldManager {
         }
         for (Map.Entry<UUID, Double> entry : grinded.entrySet()) {
             yaml.set(GRINDED_SECTION + "." + entry.getKey(), entry.getValue());
+        }
+        for (Map.Entry<UUID, Double> entry : earned.entrySet()) {
+            yaml.set(EARNED_SECTION + "." + entry.getKey(), entry.getValue());
         }
         try {
             yaml.save(file);
@@ -76,8 +83,15 @@ public final class GoldManager {
         if (amount > 0) {
             Double total = grinded.get(player);
             grinded.put(player, (total == null ? 0 : total) + amount);
+            earned.merge(player, amount, Double::sum);
         }
         set(player, get(player) + amount);
+    }
+
+    /** 今までに稼いだゴールド。 */
+    public double getEarned(UUID player) {
+        Double total = earned.get(player);
+        return total == null ? 0 : total;
     }
 
     /** このプレステージ中に稼いだゴールド。 */

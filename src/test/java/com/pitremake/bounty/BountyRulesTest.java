@@ -55,6 +55,19 @@ class BountyRulesTest {
     void combatTimerGrowsFiveSecondsPerThousand() {
         assertEquals(0, BountyRules.combatExtensionMillis(950));
         assertEquals(5_000, BountyRules.combatExtensionMillis(1800));
-        assertEquals(25_000, BountyRules.combatExtensionMillis(5000));
+        assertEquals(15_000, BountyRules.combatExtensionMillis(3000));
+        // 普通の 10 秒と合わせて最大 30 秒 (コマンドで付けた 60,000g でも)
+        assertEquals(20_000, BountyRules.combatExtensionMillis(5000));
+        assertEquals(20_000, BountyRules.combatExtensionMillis(60_000));
+    }
+
+    @Test
+    void naturalBumpsStopAtTheCapButCommandBountiesStay() {
+        java.util.Random random = new java.util.Random(1);
+        // 上限 (5,000g / Highlander 10,000g) を超えて上がらない
+        assertEquals(50, BountyRules.rollBump(100, 4950, 5000, random));
+        // コマンドで 11,000g を付けた人は自然には上がらない (下がりもしない)
+        assertEquals(0, BountyRules.rollBump(100, 11_000, 5000, random));
+        assertEquals(0, BountyRules.rollBump(100, 11_000, 10_000, random));
     }
 }

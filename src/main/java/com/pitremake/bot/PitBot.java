@@ -102,6 +102,15 @@ final class PitBot {
     private int aliveTicks;
     private int stuckTicks;
     private int sprintTicks;
+    /** スポーンの外で相手が見つからない tick 数 (長く続いたら /oof)。 */
+    private int idleTicks;
+    /** KOTH 中に丘へ向かう Bot か。 */
+    private boolean routed;
+    /** 飛んでいる途中 (ランチャーパッド) なら、その飛び方と経った tick。 */
+    private BotRoute.Flight flight;
+    private int flightTick;
+    /** 飛んでいる間に乗っている透明なアーマースタンド。 */
+    private org.bukkit.entity.ArmorStand seat;
 
     /** スキン (MineSkin から。無ければ null で Steve / Alex)。復活しても同じ。 */
     private final SkinPool.Skin skin;
@@ -176,6 +185,8 @@ final class PitBot {
         if (handle == null) {
             return;
         }
+        flight = null;
+        leaveSeat();
         handle.world.removeEntity(handle);
         broadcastInfo(PacketPlayOutPlayerInfo.EnumPlayerInfoAction.REMOVE_PLAYER);
         handle = null;
@@ -188,10 +199,57 @@ final class PitBot {
         }
     }
 
-    /** @param otherBots 他の Bot (狙う相手の候補) */
-    void tick(List<Player> otherBots) {
+    /** スポーンの外で相手が見つからないまま ticks 以上たったか (BotManager が /oof する)。 */
+    boolean idleFor(int ticks) {
+        return idleTicks >= ticks;
+    }
+
+    boolean isFlying() {
+        return flight != null;
+    }
+
+    boolean isRouted() {
+        return routed;
+    }
+
+    void setRouted(boolean routed) {
+        this.routed = routed;
+    }
+
+    /**
+     * @param otherBots 他の Bot (狙う相手の候補)
+     * @param route     KOTH 中に丘へ向かう Bot なら丘への道 (それ以外は null)
+     */
+    void tick(List<Player> otherBots, BotRoute route) {
         if (handle == null) {
             return;
+        }
+        if (flight != null && !handle.dead && handle.getHealth() > 0) {
+            // ランチャーパッドで飛んでいる間は弧に沿って動かすだけ (プレイヤーと同じ録画の弧)
+            Location at = flight.at(++flightTick);
+            if (at != null) {
+                if (seat == null) {
+                    seat = at.getWorld().spawn(at, org.bukkit.entity.ArmorStand.class);
+                    seat.setVisible(false);
+                    seat.setGravity(false);
+                    seat.setSmall(true);
+                    handle.mount(((org.bukkit.craftbukkit.v1_8_R3.entity.CraftArmorStand) seat).getHandle());
+                }
+                ((org.bukkit.craftbukkit.v1_8_R3.entity.CraftArmorStand) seat).getHandle().setPosition(at.getX(), at.getY(), at.getZ());
+                if (flightTick <= com.pitremake.spawn.Launcher.ATTACH_RESEND_TICKS + 1) {
+                    com.pitremake.spawn.Launcher.showRiding(handle.getBukkitEntity(), seat);
+                }
+                handle.setPositionRotation(at.getX(), at.getY(), at.getZ(), handle.yaw, handle.pitch);
+                handle.motX = 0;
+                handle.motY = 0;
+                handle.motZ = 0;
+                handle.fallDistance = 0;
+                return;
+            }
+            flight = null;
+            leaveSeat();
+            handle.fallDistance = 0;
+            stuckTicks = 0;
         }
         if (handle.dead || handle.getHealth() <= 0) {
             if (++deadTicks >= RESPAWN_TICKS) {
@@ -210,6 +268,15 @@ final class PitBot {
         }
 
         Location here = handle.getBukkitEntity().getLocation();
+        if (route != null && spawnArea.isProtected(here)) {
+            // KOTH 中: スポーンの中をパッドへまっすぐ歩き、パッドを越えたら丘へ飛ぶ
+            walkTo(route.destination());
+            lastTarget = null;
+            handle.l();
+            flight = route.launch(here, handle.getBukkitEntity().getLocation());
+            flightTick = 0;
+            return;
+        }
         if (spawnArea.isProtected(here)) {
             // スポーンでは戦わず、中心 (0, 0) へ歩いて下の戦う場所へ落ちる
             walkTo(spawnArea.center(here));
@@ -221,7 +288,9 @@ final class PitBot {
         Player target = findTarget(otherBots);
         if (target == null) {
             handle.setInput(0, 0, false, false);
+            idleTicks++;
         } else {
+            idleTicks = 0;
             if (!target.equals(lastTarget)) {
                 // 新しい相手を見つけたらすぐには殴らない
                 attackCooldown = Math.max(attackCooldown, REACTION_TICKS);
@@ -297,7 +366,24 @@ final class PitBot {
     }
 
     /** 死んだとき (HP 0) や動けなくなったとき: Pit の復活地点に出し直す。 */
+    /** 台から降りて台を消す。 */
+    private void leaveSeat() {
+        if (seat == null) {
+            return;
+        }
+        Location at = seat.getLocation();
+        if (handle != null) {
+            handle.mount(null);
+            handle.setPositionRotation(at.getX(), at.getY(), at.getZ(), handle.yaw, handle.pitch);
+        }
+        seat.remove();
+        seat = null;
+    }
+
     void respawnAtPitSpawn() {
+        idleTicks = 0;
+        flight = null;
+        leaveSeat();
         despawn();
         home = spawnArea.randomPoint();
         stuckTicks = 0;

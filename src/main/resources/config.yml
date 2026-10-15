@@ -18,15 +18,11 @@ scoreboard:
   server: 'M1A'
   footer: '&ewww.hypixel.net'
 
-# Spawn. points are "x,y,z,yaw" (Hypixel Pit respawn points from the recording).
-# If points is empty, the world spawn is used.
+# Spawn. Respawn points are in maps/<map>.yml inside the plugin (spawn-points); spawn.points here overrides them
+# (made by /pitspawn add). An empty spawn.points list means the world spawn.
 spawn:
   world: ''
   teleport-on-join: true
-  points:
-  - '9.5,114,0.5,90'
-  - '11.5,114.6,-11.25,-135'
-  - '7,114,7,135'
   # Players inside this area cannot attack or be attacked
   protection:
     enabled: true
@@ -35,34 +31,85 @@ spawn:
     radius: 25
     min-y: 105
 
-# Floating text on the map: "x,y,z|text" (& color codes). Defaults are the Hypixel positions from the recording.
+# Floating text: maps/<map>.yml inside the plugin (holograms); holograms.lines here ("x,y,z|text") overrides them.
 holograms:
   enabled: true
-  lines:
-  - '0.5,116.00,0.5|&eThe Hypixel Pit'
-  - '0.5,115.69,0.5|&a&lJUMP! &c&lFIGHT!'
-  - '-13.5,116.53,0.5|&d&lMYSTIC WELL'
-  - '-13.5,116.25,0.5|&7Item Enchants'
-  - '-11.5,115.28,5.5|&5&lENDER CHEST'
-  - '-11.5,115.00,5.5|&7Store items forever'
-  - '-6.5,116.91,11.5|&e&lUNLOCKED FEATURES'
-  - '-6.5,116.50,11.5|&7[&71&7] &b/respawn'
-  - '-6.5,116.19,11.5|&7[&75&7] &b/pitchat'
-  - '-6.5,115.88,11.5|&7[&910&7] &bUpgrades'
-  - '-6.5,115.59,11.5|&7[&915&7] &bEnder Chest'
-  - '-6.5,115.28,11.5|&7[&230&7] &bContracts'
-  - '-6.5,115.00,11.5|&7[&e50&7] &bStats'
-  - '-6.5,114.69,11.5|&7[&660&7] &b/trade'
-  - '-6.5,114.38,11.5|&7[&c70&7] &b/view'
-  - '-6.5,114.09,11.5|&7[&b120&7] &bPrestige'
-  - '-6.5,113.78,11.5|&7Gain levels to unlock more'
 
 # Text above and below the tab list
 tab:
   header: '&bYou are playing on &e&lMC.HYPIXEL.NET'
   footer: '&aRanks, Boosters & MORE! &c&lSTORE.HYPIXEL.NET'
 
+# Spawn leaderboard (Top Active Players by lifetime XP). position = top line "x,y,z", picker = rabbit "x,y,z,yaw".
+leaderboard:
+  enabled: true
+  position: '16.188,117.375,0.5'
+  picker: '14.5,114,2.5,111.1'
+
+# Auction minor event (pit.wiki/Auction). The interval is not in the recordings. /pit auction <start|end>
+auction:
+  enabled: false
+  interval-minutes: 15
+  min-players: 1
+  # Ticks between the 5 start chords (the recording uses 5; 7 sounds less rushed)
+  start-sound-interval-ticks: 7
+  # weight = how often it is offered, price = minimum bid (vile / feather / renown: per item / per renown).
+  # Only "Tier III pants at 4,500g" is from the recording; the rest are guesses.
+  offers:
+    tier3-sword: {weight: 14, price: 4500}
+    tier3-bow: {weight: 10, price: 4500}
+    tier3-pants: {weight: 14, price: 4500}
+    auction-pants: {weight: 10, price: 10000}
+    cactus: {weight: 8, price: 2000}
+    vile: {weight: 10, price: 500}
+    fresh-pants: {weight: 10, price: 1000}
+    renown: {weight: 10, price: 750}
+    diamond-armor: {weight: 8, price: 1500}
+    feather: {weight: 3, price: 1500}
+    repair-kit: {weight: 1, price: 15000}
+
+# Day and night (Night Quests). Night falls over 94 ticks like the recording; the lengths are not in the recordings.
+# /pit time <day|night> starts nightfall / daybreak right away.
+night:
+  enabled: true
+  day-minutes: 20
+  night-minutes: 10
+
 # Backups of the worlds (terrain) and plugins/Pit into <server>/backups (also /pit backup). 0 = no automatic backups
 backup:
   interval-minutes: 60
   keep: 10
+
+spire:
+  enabled: false
+  # Minutes between Spire events (the 3 min warning starts when this runs out). /pit spire <start|now|end>
+  interval-minutes: 60
+  min-players: 1
+
+koth:
+  enabled: false
+  # Minutes between KOTH events (4 min each; skipped while a Spire is on). /pit koth <start|end>
+  interval-minutes: 20
+  min-players: 1
+
+map-template:
+  # Overwrite the world's terrain with plugins/Pit/map-template on every start (/pit map save updates the template)
+  restore-on-start: true
+
+bots:
+  # Bots are kept at base + per-player x (real players online). They are removed during a Spire and come back after it
+  auto: true
+  base: 10
+  per-player: 5
+  # A bot outside spawn that finds no target for this many seconds does /oof (back to spawn). 0 = never
+  idle-oof-seconds: 10
+
+double-rewards:
+  # Reward multiplier minor event (2X REWARDS in the recording): kills inside the area give X times XP / gold for 4 mins
+  # (only Mid for now). The automatic one uses multiplier. /pit multireward <X> start, /pit multireward end
+  enabled: false
+  multiplier: 2
+  interval-minutes: 20
+  min-players: 1
+  mid-radius: 15
+

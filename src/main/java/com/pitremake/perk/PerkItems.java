@@ -30,7 +30,9 @@ public final class PerkItems {
     public enum Type {
         GOLDEN_HEAD, TASTY_SOUP, OLYMPUS_POTION, MINEMAN_COBBLE,
         MINEMAN_PICKAXE, FISHING_ROD, LAVA_BUCKET, SAFETY_HELMET, GOLDEN_APPLE,
-        FANCY_HAT, ASSIST_SOUP
+        FANCY_HAT, ASSIST_SOUP,
+        /** Bounty Hunter の金のパンツ (印の番号がずれないよう最後に足す)。 */
+        GOLDEN_PANTS
     }
 
     static final String KEY = "PitPerkItem";
@@ -135,6 +137,18 @@ public final class PerkItems {
 
     public static ItemStack safetyHelmet() {
         return tag(unbreakable(Material.CHAINMAIL_HELMET), Type.SAFETY_HELMET);
+    }
+
+    /**
+     * Bounty Hunter の金のレギンス (録画 2026-10-15_13-52-12.mcrc の他のプレイヤーの持ち物: Unbreakable、§7Perk item)。
+     * pit.wiki: これを履いていないと Bounty Hunter は何も効かない。
+     */
+    public static ItemStack goldenPants() {
+        ItemStack item = unbreakable(Material.GOLD_LEGGINGS);
+        ItemMeta meta = item.getItemMeta();
+        meta.setLore(Arrays.asList("§7Perk item"));
+        item.setItemMeta(meta);
+        return tag(item, Type.GOLDEN_PANTS);
     }
 
     /** キルでもらう金リンゴ。 */

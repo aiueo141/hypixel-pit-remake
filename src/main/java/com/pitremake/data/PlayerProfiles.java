@@ -28,7 +28,8 @@ import java.util.logging.Level;
  * プレイヤーごとのファイル (plugins/Pit/players/&lt;UUID&gt;.yml)。デス・アシストなどの追加の記録と、
  * オフラインでも見られるよう持ち物・エンダーチェストの写し。
  * <pre>
- * name / first-join / last-seen / playtime (秒) / deaths / assists / highest-streak
+ * name / first-join / last-seen / playtime (秒) / deaths / assists / highest-streak / night-quests
+ * counters ({@link PitStat}: 剣で殴った回数・与えたダメージなど My pit stats の記録)
  * inventory (36) / armor (4) / ender-chest (27〜54)  ← アイテムは NBT ごと Base64
  * </pre>
  * 写しはログアウト・1 分ごと・サーバー停止のときに取る。
@@ -48,6 +49,10 @@ public final class PlayerProfiles implements Listener {
         public int deaths;
         public int assists;
         public int highestStreak;
+        /** 達成した Night Quest の数。 */
+        public int nightQuests;
+        /** {@link PitStat} のキー → 値 (ダメージは小数)。 */
+        public final Map<String, Double> counters = new ConcurrentHashMap<>();
         public List<ItemStack> inventory = Collections.emptyList();
         public List<ItemStack> armor = Collections.emptyList();
         public List<ItemStack> enderChest = Collections.emptyList();
@@ -113,6 +118,12 @@ public final class PlayerProfiles implements Listener {
         profile.deaths = yaml.getInt("deaths");
         profile.assists = yaml.getInt("assists");
         profile.highestStreak = yaml.getInt("highest-streak");
+        profile.nightQuests = yaml.getInt("night-quests");
+        if (yaml.isConfigurationSection("counters")) {
+            for (String key : yaml.getConfigurationSection("counters").getKeys(false)) {
+                profile.counters.put(key, yaml.getDouble("counters." + key));
+            }
+        }
         profile.inventory = items(yaml.getStringList("inventory"));
         profile.armor = items(yaml.getStringList("armor"));
         profile.enderChest = items(yaml.getStringList("ender-chest"));
@@ -152,6 +163,10 @@ public final class PlayerProfiles implements Listener {
         yaml.set("deaths", profile.deaths);
         yaml.set("assists", profile.assists);
         yaml.set("highest-streak", profile.highestStreak);
+        yaml.set("night-quests", profile.nightQuests);
+        for (Map.Entry<String, Double> counter : profile.counters.entrySet()) {
+            yaml.set("counters." + counter.getKey(), counter.getValue());
+        }
         yaml.set("inventory", encode(profile.inventory));
         yaml.set("armor", encode(profile.armor));
         yaml.set("ender-chest", encode(profile.enderChest));
@@ -242,6 +257,25 @@ public final class PlayerProfiles implements Listener {
 
     public void addAssist(UUID player) {
         profile(player).assists++;
+    }
+
+    public void addNightQuest(UUID player) {
+        profile(player).nightQuests++;
+    }
+
+    /** My pit stats の記録を足す。 */
+    public void add(UUID player, PitStat stat, double amount) {
+        profile(player).counters.merge(stat.getKey(), amount, Double::sum);
+    }
+
+    public double get(UUID player, PitStat stat) {
+        Double value = profile(player).counters.get(stat.getKey());
+        return value == null ? 0 : value;
+    }
+
+    /** その人の記録 (無ければ作る)。 */
+    public Profile get(UUID player) {
+        return profile(player);
     }
 
     public void updateStreak(UUID player, int streak) {

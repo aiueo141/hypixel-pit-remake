@@ -421,7 +421,8 @@ public final class MegastreakManager implements Listener, DamageModifier {
         Player victim = context.victim;
         Megastreak victimMega = megastreak(victim);
         int victimStreak = streak(victim);
-        context.increase(MegastreakRules.damageTakenMultiplier(victimMega, victimStreak) - 1);
+        // メガストリークの倍率は E (足し算) ではなく、その外で掛ける f_p (逆算レポート-1: Beastmode など)
+        context.multiply(MegastreakRules.damageTakenMultiplier(victimMega, victimStreak));
         if (MegastreakRules.isTrueDamageImmune(victimMega, victimStreak)) {
             context.immuneToTrueDamage();
         }
@@ -436,8 +437,8 @@ public final class MegastreakManager implements Listener, DamageModifier {
         boolean bountied = plugin.getBountyManager().get(victim.getUniqueId()) > 0;
         // Uberstreak 100 キルから: プレステージの無い相手に -40%
         boolean nonPrestige = plugin.prestigeOf(victim) == 0;
-        context.increase(MegastreakRules.damageDealtMultiplier(megastreak(attacker), streak(attacker), nonPrestige, bountied) - 1);
-        if (plugin.getPerkManager().has(attacker, Perk.BOUNTY_HUNTER)) {
+        context.multiply(MegastreakRules.damageDealtMultiplier(megastreak(attacker), streak(attacker), nonPrestige, bountied));
+        if (plugin.getPerkManager().bountyHunting(attacker)) {
             context.increase(MegastreakRules.bountyHunterDamageTaken(victimMega, victimStreak)
                     * plugin.getSimpleEnchants().bountyHunterFactor(victim, attacker));
         }

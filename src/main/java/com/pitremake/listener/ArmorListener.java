@@ -1,6 +1,5 @@
 package com.pitremake.listener;
 
-import com.pitremake.item.MysticData;
 import com.pitremake.item.MysticItems;
 import com.pitremake.item.RewardItems;
 import org.bukkit.entity.LivingEntity;
@@ -30,8 +29,9 @@ public final class ArmorListener implements Listener {
         LivingEntity entity = (LivingEntity) event.getEntity();
         int extraPoints = 0;
         ItemStack leggings = entity.getEquipment().getLeggings();
-        // Dark Pants は革と同じ強さなので補正しない
-        if (MysticItems.isMysticPants(leggings) && !MysticData.read(leggings).isDarkPants()) {
+        if (MysticItems.isMysticPants(leggings)) {
+            // Pit のパンツは Fresh・Mystic・Dark のどれも鉄のレギンスと同じ 5 ポイント。Dark Pants も説明文 (As strong as leather)
+            // と違い 5 (逆算レポート-1: Somber を着た人への被弾 627 件が、2 ポイントでは 1 件も一致せず 5 ポイントで揃う)
             extraPoints += MysticItems.PANTS_ARMOR_POINTS - LEATHER_LEGGINGS_ARMOR_POINTS;
         }
         // Golden Helmet はダイヤのヘルメットと同じ強さ

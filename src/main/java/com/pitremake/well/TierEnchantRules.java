@@ -3,6 +3,7 @@ package com.pitremake.well;
 import com.pitremake.enchant.EnchantCategory;
 import com.pitremake.enchant.EnchantRarity;
 import com.pitremake.enchant.PitEnchant;
+import com.pitremake.enchant.list.PantsEnchants;
 import com.pitremake.item.MysticType;
 
 import java.util.EnumSet;
@@ -63,7 +64,9 @@ final class TierEnchantRules {
     boolean isEligible(PitEnchant enchant, MysticType type) {
         EnchantCategory category = enchant.getCategory();
         boolean poolMatches = category == EnchantCategory.RAGE ? ragePool : !ragePool && !category.isSpecialPantsOnly();
-        return enchant.canApplyTo(type) && rarities.contains(enchant.getRarity()) && poolMatches;
+        // Pit MBA などオークション限定のエンチャントは抽選に出ない
+        return enchant.canApplyTo(type) && rarities.contains(enchant.getRarity()) && poolMatches
+                && !PantsEnchants.AUCTION_ONLY.contains(enchant.getKey());
     }
 
     /** 強化後のアイテムが持てるエンチャントの種類数の上限。 */

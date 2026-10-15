@@ -65,6 +65,11 @@ public final class DamageContext {
     double reductionSum;
     /** 倍率を掛ける前に足す攻撃力 (防具で減る)。 */
     double flatDamage;
+    /**
+     * E (増減をまとめたもの) の外で掛ける倍率 L (アカウントの補正など)。重ね方に関係なく掛け算
+     * (ユーザーの調査 regularity.html: 1 撃目 = x0 × E × L × 防具)。
+     */
+    double outerFactor = 1;
     double trueDamage;
     /** 防げない確定ダメージ (メガストリークの代償など。Mirror / Hermit でも受ける)。 */
     double penaltyTrueDamage;
@@ -112,6 +117,11 @@ public final class DamageContext {
     public void increase(double fraction) {
         factor *= Math.max(0, 1 + fraction);
         increaseSum += fraction;
+    }
+
+    /** E の外で掛ける倍率 L (1.10 = ×1.10)。加算でも足さずに最後に掛ける。 */
+    public void multiply(double multiplier) {
+        outerFactor *= Math.max(0, multiplier);
     }
 
     /** 被ダメージ減少 (0.25 = -25%)。 */
@@ -174,7 +184,17 @@ public final class DamageContext {
         if (forcedMultiplier != null) {
             return forcedMultiplier;
         }
+        return enchantMultiplier() * outerFactor;
+    }
+
+    /** E: 増減をまとめた倍率 (L を含まない)。 */
+    public double enchantMultiplier() {
         return stacking == Stacking.ADDITIVE ? additive(increaseSum, reductionSum) : factor;
+    }
+
+    /** L: E の外で掛ける倍率。 */
+    public double outerMultiplier() {
+        return outerFactor;
     }
 
     /** 倍率を掛ける前に足す攻撃力 (Regularity の追撃は最初の一撃と同じ)。 */

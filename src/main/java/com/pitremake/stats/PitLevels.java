@@ -57,6 +57,15 @@ public final class PitLevels {
         return totalXpFor(level, 0);
     }
 
+    /** それまでのプレステージ (どれもレベル 120 まで) と今の XP を足した、今までに稼いだ XP。 */
+    public static long lifetimeXp(int prestige, long xp) {
+        long total = xp;
+        for (int p = 0; p < prestige; p++) {
+            total += totalXpFor(MAX_LEVEL, p);
+        }
+        return total;
+    }
+
     public static long totalXpFor(int level, int prestige) {
         long total = 0;
         for (int i = 1; i < Math.min(level, MAX_LEVEL); i++) {

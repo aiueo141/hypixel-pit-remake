@@ -37,7 +37,10 @@ public final class HologramManager {
         if (world == null) {
             world = Bukkit.getWorlds().get(0);
         }
-        for (String raw : plugin.getConfig().getStringList("holograms.lines")) {
+        // config.yml の holograms.lines があればそれ、無ければプラグインの中の今のマップの holograms
+        List<String> lines = plugin.getConfig().isSet("holograms.lines") ? plugin.getConfig().getStringList("holograms.lines")
+                : com.pitremake.map.MapData.of(plugin).getStringList("holograms");
+        for (String raw : lines) {
             int bar = raw.indexOf('|');
             if (bar < 0) {
                 continue;

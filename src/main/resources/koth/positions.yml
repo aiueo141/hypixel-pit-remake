@@ -1,0 +1,13 @@
+# KOTH の丘を出す場所 (マップごと)。"x,y,z,名前" x,y,z = 真ん中の真下の地面のブロック。
+# イベントのたびにランダムに 1 か所。サーバーの config.yml の koth.positions.<マップ> があればそちらを使う (/pit koth addpos で作られる)。
+seasons:
+- '-102,85,-34,Summer Area'
+- '-28,83,-30,Summer Area'
+- '62,98,-34,Autumn Area'
+- '76,94,-77,Autumn Area'
+- '38,84,40,Winter Area'
+- '49,97,76,Winter Area'
+- '61,105,37,Winter Area'
+- '-71,94,77,Spring Area'
+- '-21,84,67,Spring Area'
+- '-76,84,12,Spring Area'

@@ -14,9 +14,10 @@ import java.util.concurrent.ConcurrentHashMap;
  * Mystic のエンチャントが効くかどうか (ユーザーの指定)。
  * <pre>
  * Combo: Venom : 毒にされた人は 12 秒、毒にした本人は 24 秒、Mystic のエンチャントが全部効かない
- *                (着ていても・殴っても・撃っても効果なし)
- * Somber       : Somber を履いた人と戦うとき、相手の Mystic のエンチャントは全部効かない
- * Armageddon Boots : 履いていると相手の Somber を無視する (自分のエンチャントが効く)
+ *                (着ていても・殴っても・撃っても効果なし)。毒の間は Somber と同じで、相手のエンチャントも効かない
+ * Somber       : Somber を履いた人と戦うとき、相手の Mystic のエンチャントは全部効かない。
+ *                自分の軽減 (Guardian など) も効かず、受けるダメージの E に +0.20
+ * Armageddon Boots : 履いていると相手の Somber を無視する (自分のエンチャントが効く)。毒の相手には効かない
  * </pre>
  */
 public final class MysticAccess {
@@ -56,6 +57,15 @@ public final class MysticAccess {
         return MysticItems.isMysticPants(pants) && MysticData.read(pants).getEnchants().containsKey("somber") && hasHeresy(player);
     }
 
+    /**
+     * Somber を履いている人は Mystic のアイテム (剣・弓) を使えない (ユーザーの指定): 剣・弓のエンチャントが全部効かない
+     * (キルの報酬のリソース系や Hidden Jewel も)。剣としての攻撃力はそのまま。
+     * Fresh Dark Pants や Somber の無い Dark Pants はただのパンツ (Somber は Heresy が無いと効かないので、そのときも使える)。
+     */
+    public static boolean mysticItemsBlocked(Player player) {
+        return wearsSomber(player);
+    }
+
     /** Dark Pants のエンチャントが効くか (Renown の Heresy が 1 Tier 以上、pit.wiki の Dark Pants)。 */
     public static boolean hasHeresy(Player player) {
         com.pitremake.PitPlugin plugin = com.pitremake.PitPlugin.getInstance();
@@ -91,7 +101,8 @@ public final class MysticAccess {
 
     /**
      * owner の Mystic のエンチャントが、opponent との戦いで効かないか。
-     * Venom で止まっている、または相手が Somber を履いていて自分が Armageddon Boots を履いていない。
+     * Venom で止まっている、相手が Venom の毒になっている (Somber と同じ扱いで Armageddon Boots でも効かない)、
+     * または相手が Somber を履いていて自分が Armageddon Boots を履いていない (逆算レポート-1)。
      */
     public static boolean disabled(Player owner, Player opponent) {
         if (owner == null) {
@@ -100,6 +111,17 @@ public final class MysticAccess {
         if (isSuppressed(owner)) {
             return true;
         }
-        return opponent != null && !opponent.equals(owner) && wearsSomber(opponent) && !wearsArmageddon(owner);
+        if (opponent == null || opponent.equals(owner)) {
+            return false;
+        }
+        return isSuppressed(opponent) || wearsSomber(opponent) && !wearsArmageddon(owner);
+    }
+
+    /**
+     * 殴られた人の軽減 (Mystic のパンツ・Guardian) が効かないか: {@link #disabled} に加えて、自分が Somber を履いていても効かない
+     * (逆算レポート-1: Somber の着用者は自分の Guardian なども効かない)。
+     */
+    public static boolean defenseDisabled(Player victim, Player attacker) {
+        return disabled(victim, attacker) || wearsSomber(victim);
     }
 }

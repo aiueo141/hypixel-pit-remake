@@ -13,6 +13,10 @@ public interface ClickMenu extends InventoryHolder {
         click(slot);
     }
 
+    /** 下の自分のインベントリ (0〜35、0〜8 がホットバー) がクリックされたとき。トレードの画面などが上書きする。 */
+    default void clickInventory(int slot, boolean rightClick) {
+    }
+
     /** 画面が閉じられたとき。 */
     default void close() {
     }

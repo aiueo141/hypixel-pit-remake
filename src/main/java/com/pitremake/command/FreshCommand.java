@@ -23,7 +23,7 @@ public final class FreshCommand implements CommandExecutor, TabCompleter {
 
     private static final int MAX_AMOUNT = 64;
     private static final List<String> TYPES = Arrays.asList("sword", "bow", "pants", "gem", "cactus", "feather",
-            "archangel", "armageddon", "goldenhelmet", "vile");
+            "archangel", "armageddon", "goldenhelmet", "vile", "repairkit");
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
@@ -69,6 +69,10 @@ public final class FreshCommand implements CommandExecutor, TabCompleter {
                 break;
             case "vile":
                 factory = () -> SpecialItems.vile(1);
+                amountIndex = 1;
+                break;
+            case "repairkit":
+                factory = () -> SpecialItems.repairKit(1);
                 amountIndex = 1;
                 break;
             case "goldenhelmet":
@@ -135,7 +139,7 @@ public final class FreshCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ChatColor.YELLOW + "/" + label + " bow [amount]");
         sender.sendMessage(ChatColor.YELLOW + "/" + label + " pants <red|orange|yellow|green|blue|rage|dark|sewer|aqua> [amount]");
         sender.sendMessage(ChatColor.YELLOW + "/" + label + " <gem|cactus|feather> [amount]");
-        sender.sendMessage(ChatColor.YELLOW + "/" + label + " <archangel|armageddon|goldenhelmet|vile> [amount]");
+        sender.sendMessage(ChatColor.YELLOW + "/" + label + " <archangel|armageddon|goldenhelmet|vile|repairkit> [amount]");
     }
 
     @Override

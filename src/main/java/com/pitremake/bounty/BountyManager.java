@@ -17,8 +17,9 @@ public final class BountyManager {
         return bounty == null ? 0 : bounty;
     }
 
+    /** コマンドなどで直接付ける (上限なし: 11,000g や 60,000g はコマンドでしか付かない)。 */
     public void set(UUID player, int amount) {
-        set(player, amount, BountyRules.MAX_BOUNTY);
+        set(player, amount, Integer.MAX_VALUE);
     }
 
     private void set(UUID player, int amount, int maxBounty) {

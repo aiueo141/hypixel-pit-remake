@@ -273,11 +273,12 @@ class MysticWellRollerTest {
     }
 
     @Test
-    void levelBudgetPerTierAndRareExtraCost() {
+    void levelBudgetPerTierAndNewRareAtThreeChangesNothingElse() {
         int[] maxBudget = {0, WellRules.maxBudget(1), WellRules.maxBudget(2), WellRules.maxBudget(3)};
         boolean tierThreeFourLevels = false;
         boolean tierThreeRareAtThree = false;
-        boolean tierTwoRare = false;
+        boolean tierThreeRareAtTwoWithOthers = false;
+        boolean tierTwoRareWithOthers = false;
         for (long seed = 0; seed < RARE_SEEDS; seed++) {
             Random random = new Random(seed);
             MysticData data = new MysticData();
@@ -292,26 +293,32 @@ class MysticWellRollerTest {
                         newRare = key;
                     }
                 }
-                // 新しく付いた RARE はレベル数を 1 余分に消費する
-                int cost = gained + (newRare != null ? 1 : 0);
-                assertTrue(gained >= 1 && cost <= maxBudget[tier], "seed " + seed + " tier " + tier);
+                assertTrue(gained >= 1 && gained <= maxBudget[tier], "seed " + seed + " tier " + tier);
 
-                if (tier == 2 && newRare != null) {
-                    assertEquals(1, gained, "seed " + seed);
-                    tierTwoRare = true;
+                if (tier == 2 && newRare != null && gained > 1) {
+                    // RARE に追加コストは無いので、Tier II でも RARE I と同時に他も追加・強化される
+                    tierTwoRareWithOthers = true;
                 }
                 if (tier == 3 && newRare == null && gained == 4) {
                     tierThreeFourLevels = true;
                 }
                 if (tier == 3 && newRare != null && data.getEnchantLevel(newRare) == 3) {
-                    // 例: Gamble III が付いた → 3 レベル + RARE の 1 = 4 消費
+                    // 新しい RARE がいきなり III になったときは、他のエンチャントは何も変わらない
+                    // (例: Sniper I, MLB I → Sniper I, MLB I, Telebow III)
+                    Map<String, Integer> others = new HashMap<>(data.getEnchants());
+                    others.remove(newRare);
+                    assertEquals(before, others, "seed " + seed);
                     tierThreeRareAtThree = true;
+                }
+                if (tier == 3 && newRare != null && data.getEnchantLevel(newRare) == 2 && gained > 2) {
+                    tierThreeRareAtTwoWithOthers = true;
                 }
             }
         }
-        assertTrue(tierTwoRare);
+        assertTrue(tierTwoRareWithOthers);
         assertTrue(tierThreeFourLevels);
         assertTrue(tierThreeRareAtThree);
+        assertTrue(tierThreeRareAtTwoWithOthers);
     }
 
     @Test
@@ -636,5 +643,55 @@ class MysticWellRollerTest {
             return Outcome.ADD_ONLY;
         }
         return upgraded ? Outcome.UPGRADE_ONLY : Outcome.NONE;
+    }
+
+    @Test
+    void auctionOnlyEnchantsNeverComeFromTheWell() {
+        for (MysticType type : MysticType.values()) {
+            for (PitEnchant enchant : roller.newEnchantCandidates(new MysticData(), type, TierEnchantRules.of(3, false), true)) {
+                assertTrue(!PantsEnchants.AUCTION_ONLY.contains(enchant.getKey()), type + " " + enchant.getKey());
+            }
+        }
+        for (long seed = 0; seed < SEEDS; seed++) {
+            MysticData data = new MysticData();
+            Random random = new Random(seed);
+            for (int tier = 1; tier <= 3; tier++) {
+                roller.upgrade(data, MysticType.PANTS, random);
+            }
+            for (String key : PantsEnchants.AUCTION_ONLY) {
+                assertEquals(0, data.getEnchantLevel(key), "seed " + seed);
+            }
+        }
+    }
+
+    @Test
+    void auctionPantsCanBeUpgradedAtTheWell() {
+        int[] levels = new int[4];
+        int samples = 10_000;
+        for (long seed = 0; seed < samples; seed++) {
+            Random random = new Random(seed);
+            // オークションの Tier I パンツ (Paparazzi I、Lives 10)
+            MysticData data = new MysticData();
+            data.setEnchant(PantsEnchants.PAPARAZZI, 1);
+            data.setTier(1);
+            data.setMaxLives(10);
+            data.setLives(10);
+            roller.upgrade(data, MysticType.PANTS, random);
+            assertEquals(2, data.getTier());
+            // Tier II では RARE は上がらない
+            assertEquals(1, data.getEnchantLevel(PantsEnchants.PAPARAZZI), "seed " + seed);
+            roller.upgrade(data, MysticType.PANTS, random);
+            assertEquals(3, data.getTier());
+            assertTrue(data.getMaxLives() > 10, "seed " + seed);
+            int level = data.getEnchantLevel(PantsEnchants.PAPARAZZI);
+            assertTrue(level >= 1 && level <= 3, "seed " + seed);
+            levels[level]++;
+            // ほかのオークション限定のエンチャントは付かない
+            assertEquals(0, data.getEnchantLevel(PantsEnchants.PIT_MBA), "seed " + seed);
+            assertEquals(0, data.getEnchantLevel(PantsEnchants.FRACTIONAL_RESERVE), "seed " + seed);
+        }
+        System.out.printf("Paparazzi after Tier III: I=%.1f%% II=%.1f%% III=%.1f%%%n",
+                100.0 * levels[1] / samples, 100.0 * levels[2] / samples, 100.0 * levels[3] / samples);
+        assertTrue(levels[3] > 0);
     }
 }

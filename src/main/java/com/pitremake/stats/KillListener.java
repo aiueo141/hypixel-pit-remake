@@ -227,11 +227,19 @@ public final class KillListener implements Listener {
         plugin.getKillstreakManager().reset(victim);
         int victimStreak = bot ? 0 : plugin.getStatsManager().getStreak(id);
         int victimBounty = bot ? 0 : plugin.getBountyManager().claim(id);
+        // Spire の塔の中: 持ち物は預かっているので Lives も減らさず、防具も落とさず、スポーンではなく 1 階下へ
+        boolean inSpire = plugin.getSpireEvent().inSpire(victim);
 
         if (killer != null && !killer.equals(victim) && !bots.isBot(killer)) {
             rewardKill(killer, victim, victimStreak, victimBounty);
             // 相手のダイヤの防具が確率で落ちる (Lodbrok で上がる)。持ち物が消える前に
-            plugin.getSimpleEnchants().armorDrops(killer, victim);
+            if (!inSpire) {
+                plugin.getSimpleEnchants().armorDrops(killer, victim);
+            }
+        }
+        if (killer != null && !killer.equals(victim)) {
+            // Bot が塔の中でキルしても上の階へ
+            plugin.getSpireEvent().onKill(killer);
         }
         rewardAssists(victim, killer, victimStreak, victimBounty);
         multiKills.remove(id);
@@ -240,7 +248,7 @@ public final class KillListener implements Listener {
             plugin.getPlayerProfiles().addDeath(id);
             plugin.getShopItemListener().onDeath(victim);
             sendDeathMessage(victim, killer);
-            {
+            if (!inSpire) {
                 if (plugin.getRenownEffects().rollDivineIntervention(victim)) {
                     victim.sendMessage("§b§lDIVINE INTERVENTION! §7Your inventory was saved!");
                 } else {
@@ -256,7 +264,9 @@ public final class KillListener implements Listener {
             plugin.getMegastreakManager().onDeath(victim, victimStreak, victimBounty);
             plugin.getStatsManager().resetStreak(id);
         }
-        if (fake) {
+        if (inSpire) {
+            plugin.getSpireEvent().onDeath(victim, fake);
+        } else if (fake) {
             if (bot) {
                 bots.respawn(victim);
             } else {
@@ -301,9 +311,10 @@ public final class KillListener implements Listener {
         player.setFallDistance(0);
         player.setVelocity(new Vector());
         player.teleport(plugin.getPitSpawn().randomPoint());
+        // 先に Autobuy (着ているミスティックの場所はインベントリへ)、そのあと空いている場所だけ初期装備のチェーン・鉄を着せる
+        plugin.getShopItemListener().autobuy(player);
         plugin.giveSpawnKit(player);
         plugin.getSimpleEnchants().onSpawn(player);
-        plugin.getShopItemListener().autobuy(player);
         showXpBar(player);
     }
 
@@ -375,12 +386,31 @@ public final class KillListener implements Listener {
         KillRewards.Boosts boosts = plugin.getMegastreakManager().boosts(killer, streak);
         plugin.getPerkManager().addBoosts(killer, victim, boosts);
         plugin.getRenownEffects().addBoosts(killer, boosts);
+        plugin.getSimpleEnchants().addKillBoosts(killer, boosts);
         plugin.getKillstreakManager().addBoosts(killer, streakBefore, streak, boosts);
         KillRewards.Kill kill = new KillRewards.Kill(levelBefore, victimLevel, streak, victimStreak,
                 armorValue(killer), armorValue(victim), diamondPieces(victim), resourceEnchants(killer))
                 .with(boosts);
         int xp = KillRewards.xp(kill);
         double gold = KillRewards.gold(kill);
+        // KOTH: 丘の上で倒すと ×4 (バウンティは別に足すので ×4 にならない)
+        double koth = plugin.getKothEvent().killMultiplier(killer);
+        if (koth != 1) {
+            xp = (int) Math.round(xp * koth);
+            gold *= koth;
+        }
+        // 2X Rewards: 区域 (Mid) の中で倒すと ×2 (バウンティは別)
+        double doubled = plugin.getDoubleRewards().killMultiplier(killer);
+        if (doubled != 1) {
+            xp = (int) Math.round(xp * doubled);
+            gold *= doubled;
+        }
+        // Spire: 階の倍率 (1 階 -50% 〜 9 階 +250%)
+        double spire = plugin.getSpireEvent().rewardMultiplier(killer);
+        if (spire != 1) {
+            xp = (int) Math.round(xp * spire);
+            gold *= spire;
+        }
         // Grim Reaper: キルの報酬 -80%
         double grim = plugin.getSimpleEnchants().killRewardMultiplier(killer);
         if (grim != 1) {
@@ -394,6 +424,7 @@ public final class KillListener implements Listener {
         }
 
         stats.addKill(id);
+        plugin.getNightCycle().onKill(killer);
         int kills = lifeKills.containsKey(id) ? lifeKills.get(id) + 1 : 1;
         lifeKills.put(id, kills);
         boolean promoted = plugin.getPerkManager().isPromoted(killer) && kills % PerkRules.PROMOTION_EVERY == 0;
@@ -403,6 +434,7 @@ public final class KillListener implements Listener {
         }
         stats.addXp(id, xp);
         plugin.getGoldManager().add(id, gold);
+        plugin.getSpireEvent().recordReward(killer, xp, gold);
         int levelAfter = stats.getLevel(id);
         streak = stats.getStreak(id);
 
@@ -455,6 +487,19 @@ public final class KillListener implements Listener {
                 broadcast("§c§lSTREAK! §7of §c" + s + " §7kills by " + broadcastName(player, level));
             }
         }
+    }
+
+    /** キル以外の報酬の XP (Night Quest など)。レベルが上がったら LEVEL UP! を出す。 */
+    public void giveXp(Player player, long xp) {
+        StatsManager stats = plugin.getStatsManager();
+        UUID id = player.getUniqueId();
+        int levelBefore = stats.getLevel(id);
+        stats.addXp(id, xp);
+        int levelAfter = stats.getLevel(id);
+        if (levelAfter > levelBefore) {
+            levelUp(player, levelBefore, levelAfter);
+        }
+        showXpBar(player);
     }
 
     private void levelUp(Player player, int levelBefore, int levelAfter) {
@@ -560,6 +605,12 @@ public final class KillListener implements Listener {
         int xp = (int) Math.round(share * KillRewards.xp(kill));
         double gold = Math.round(share * KillRewards.gold(kill) * 100) / 100.0
                 + plugin.getPerkManager().assistExtraGold(assister, share, victimBounty);
+        // KOTH: 自分も相手も丘の上なら ×4。2X Rewards: 自分が区域の中なら ×2
+        double koth = plugin.getKothEvent().assistMultiplier(assister, victim) * plugin.getDoubleRewards().killMultiplier(assister);
+        if (koth != 1) {
+            xp = (int) Math.round(xp * koth);
+            gold *= koth;
+        }
         if (plugin.getPerkManager().convertsXp(assister)) {
             gold += PerkManager.conglomerateGold(xp);
             xp = 0;
@@ -624,6 +675,7 @@ public final class KillListener implements Listener {
         plugin.getServer().getScheduler().runTask(plugin, () -> {
             showXpBar(player);
             plugin.getSimpleEnchants().onSpawn(player);
+            plugin.getSpireEvent().afterRespawn(player);
         });
     }
 
@@ -692,7 +744,9 @@ public final class KillListener implements Listener {
     private static List<Map<String, Integer>> resourceEnchants(Player player) {
         List<Map<String, Integer>> items = new ArrayList<>();
         ItemStack held = player.getItemInHand();
-        if (MysticItems.isMystic(held) && !MysticItems.isMysticPants(held)) {
+        // Somber を履いていると剣・弓のリソース系 (Gold Boost など) は効かない
+        if (MysticItems.isMystic(held) && !MysticItems.isMysticPants(held)
+                && !com.pitremake.combat.MysticAccess.mysticItemsBlocked(player)) {
             items.add(MysticData.read(held).getEnchants());
         }
         ItemStack pants = player.getInventory().getLeggings();

@@ -1,6 +1,7 @@
 package com.pitremake.view;
 
 import com.pitremake.PitPlugin;
+import com.pitremake.data.PlayerProfiles;
 import com.pitremake.perk.Perk;
 import com.pitremake.perk.PerkItems;
 import com.pitremake.stats.PitLevels;
@@ -35,6 +36,7 @@ import java.util.UUID;
  * Inventory (36)      : インベントリ (0〜8 がホットバー)
  * Ender Chest (27)    : エンダーチェスト
  * </pre>
+ * オフラインのプレイヤーは {@link PlayerProfiles} の写し (ログアウト・1 分ごとに取る持ち物・防具・エンダーチェスト) を見る。
  */
 public final class ProfileViewer implements ClickMenu {
 
@@ -67,22 +69,54 @@ public final class ProfileViewer implements ClickMenu {
 
     private final PitPlugin plugin;
     private final Player viewer;
-    private final Player target;
+    private final UUID targetId;
+    private final String targetName;
     private final Page page;
     private final Inventory inventory;
 
     public ProfileViewer(PitPlugin plugin, Player viewer, Player target) {
-        this(plugin, viewer, target, Page.PROFILE);
+        this(plugin, viewer, target.getUniqueId(), target.getName(), Page.PROFILE);
     }
 
-    private ProfileViewer(PitPlugin plugin, Player viewer, Player target, Page page) {
+    /** オフラインのプレイヤー (記録の写しを見る)。 */
+    public ProfileViewer(PitPlugin plugin, Player viewer, PlayerProfiles.Profile target) {
+        this(plugin, viewer, target.id, target.name, Page.PROFILE);
+    }
+
+    private ProfileViewer(PitPlugin plugin, Player viewer, UUID targetId, String targetName, Page page) {
         this.plugin = plugin;
         this.viewer = viewer;
-        this.target = target;
+        this.targetId = targetId;
+        this.targetName = targetName;
         this.page = page;
         // エンダーチェストは Inventory Management で増えた行も出す
-        int size = page == Page.ENDER_CHEST ? plugin.getEnderChests().size(target) : page.size;
+        int size = page == Page.ENDER_CHEST ? plugin.getEnderChests().size(targetId) : page.size;
         this.inventory = Bukkit.createInventory(this, size, page.title);
+    }
+
+    /** オンラインならそのプレイヤー、オフラインなら null。 */
+    private Player online() {
+        Player player = Bukkit.getPlayer(targetId);
+        return player != null && player.isOnline() ? player : null;
+    }
+
+    private PlayerProfiles.Profile profile() {
+        return plugin.getPlayerProfiles().get(targetId);
+    }
+
+    private ItemStack[] contents() {
+        Player player = online();
+        return player != null ? player.getInventory().getContents() : profile().inventory.toArray(new ItemStack[0]);
+    }
+
+    private ItemStack[] armorContents() {
+        Player player = online();
+        return player != null ? player.getInventory().getArmorContents() : profile().armor.toArray(new ItemStack[0]);
+    }
+
+    private ItemStack[] enderContents() {
+        Player player = online();
+        return player != null ? plugin.getEnderChests().contents(player) : profile().enderChest.toArray(new ItemStack[0]);
     }
 
     @Override
@@ -98,13 +132,13 @@ public final class ProfileViewer implements ClickMenu {
     private void render() {
         switch (page) {
             case INVENTORY:
-                ItemStack[] contents = target.getInventory().getContents();
+                ItemStack[] contents = contents();
                 for (int i = 0; i < contents.length && i < inventory.getSize(); i++) {
                     inventory.setItem(i, copy(contents[i]));
                 }
                 return;
             case ENDER_CHEST:
-                ItemStack[] ender = plugin.getEnderChests().contents(target);
+                ItemStack[] ender = enderContents();
                 for (int i = 0; i < ender.length && i < inventory.getSize(); i++) {
                     inventory.setItem(i, copy(ender[i]));
                 }
@@ -115,29 +149,32 @@ public final class ProfileViewer implements ClickMenu {
     }
 
     private void renderProfile() {
-        UUID id = target.getUniqueId();
+        UUID id = targetId;
         StatsManager stats = plugin.getStatsManager();
-        ItemStack[] armor = target.getInventory().getArmorContents();
-        for (int i = 0; i < armor.length; i++) {
+        Player online = online();
+        ItemStack[] armor = armorContents();
+        for (int i = 0; i < armor.length && i < ARMOR_SLOTS.length; i++) {
             inventory.setItem(ARMOR_SLOTS[i], copy(armor[i]));
         }
-        for (int i = 0; i < 9; i++) {
-            inventory.setItem(HOTBAR_START + i, copy(target.getInventory().getItem(i)));
+        ItemStack[] contents = contents();
+        for (int i = 0; i < 9 && i < contents.length; i++) {
+            inventory.setItem(HOTBAR_START + i, copy(contents[i]));
         }
 
         String prefix = plugin.getRankManager().prefix(id);
         String nameColor = plugin.getRankManager().nameColor(id);
         ItemStack skull = new ItemStack(Material.SKULL_ITEM, 1, (short) 3);
         SkullMeta skullMeta = (SkullMeta) skull.getItemMeta();
-        skullMeta.setOwner(target.getName());
-        skullMeta.setDisplayName((prefix.isEmpty() ? "" : prefix + " ") + nameColor + target.getName() + "§f");
-        skullMeta.setLore(Collections.singletonList("§7Last login: §aOnline"));
+        skullMeta.setOwner(targetName);
+        skullMeta.setDisplayName((prefix.isEmpty() ? "" : prefix + " ") + nameColor + targetName + "§f");
+        skullMeta.setLore(Collections.singletonList("§7Last login: " + (online != null ? "§aOnline"
+                : "§e" + ago(System.currentTimeMillis() - profile().lastSeen))));
         skull.setItemMeta(skullMeta);
         inventory.setItem(SKULL_SLOT, skull);
 
         for (int i = 0; i < PERK_SLOTS.length; i++) {
             // 録画: 入っているパークはそのアイコンに "§aPerk Slot #1" / "§eVampire"
-            Perk perk = plugin.getUpgradeManager().getPerk(target.getUniqueId(), i);
+            Perk perk = plugin.getUpgradeManager().getPerk(id, i);
             ItemStack icon = perk == null
                     ? Menus.item(Material.STAINED_GLASS_PANE, 8, 1, "§aPerk Slot #" + (i + 1), Collections.singletonList("§7None"))
                     : Menus.item(perk.getIcon(), perk.getData(), 1, "§aPerk Slot #" + (i + 1),
@@ -145,9 +182,10 @@ public final class ProfileViewer implements ClickMenu {
             inventory.setItem(PERK_SLOTS[i], perk == Perk.GOLDEN_HEADS ? PerkItems.withHeadTexture(icon) : icon);
         }
 
-        long hours = target.getStatistic(Statistic.PLAY_ONE_TICK) / TICKS_PER_HOUR;
+        long hours = online != null ? online.getStatistic(Statistic.PLAY_ONE_TICK) / TICKS_PER_HOUR
+                : profile().totalPlaytimeSeconds() / 3600;
         inventory.setItem(STATS_SLOT, Menus.item(Material.NAME_TAG, 0, 1,
-                stats.chatTag(id) + " " + nameColor + target.getName(), Arrays.asList(
+                stats.chatTag(id) + " " + nameColor + targetName, Arrays.asList(
                         "§7Gold: §6§6" + NUMBER.format(Math.floor(plugin.getGoldManager().get(id))) + "g",
                         "§7Total XP: §b" + NUMBER.format(totalXp(id)) + " XP",
                         "",
@@ -192,6 +230,23 @@ public final class ProfileViewer implements ClickMenu {
         return total;
     }
 
+    /** オフラインになってからの時間 (例: 5 minutes ago / 3 hours ago / 2 days ago)。 */
+    static String ago(long millis) {
+        long minutes = Math.max(0, millis / 60_000);
+        if (minutes < 60) {
+            return plural(minutes, "minute") + " ago";
+        }
+        long hours = minutes / 60;
+        if (hours < 24) {
+            return plural(hours, "hour") + " ago";
+        }
+        return plural(hours / 24, "day") + " ago";
+    }
+
+    private static String plural(long value, String unit) {
+        return value + " " + unit + (value == 1 ? "" : "s");
+    }
+
     private static ItemStack copy(ItemStack item) {
         return item == null || item.getType() == Material.AIR ? null : item.clone();
     }
@@ -201,18 +256,13 @@ public final class ProfileViewer implements ClickMenu {
         if (page != Page.PROFILE) {
             return;
         }
-        if (!target.isOnline()) {
-            viewer.closeInventory();
-            viewer.sendMessage("§cThat player is no longer online!");
-            return;
-        }
         if (slot == INVENTORY_SLOT) {
-            new ProfileViewer(plugin, viewer, target, Page.INVENTORY).open();
+            new ProfileViewer(plugin, viewer, targetId, targetName, Page.INVENTORY).open();
         } else if (slot == ENDER_CHEST_SLOT) {
-            new ProfileViewer(plugin, viewer, target, Page.ENDER_CHEST).open();
+            new ProfileViewer(plugin, viewer, targetId, targetName, Page.ENDER_CHEST).open();
         } else if (slot == TRADE_SLOT) {
-            viewer.sendMessage("§cTrading is not available yet!");
-            viewer.playSound(viewer.getLocation(), "mob.villager.no", 1.0f, 1.0f);
+            viewer.closeInventory();
+            plugin.getTradeManager().request(viewer, online());
         }
     }
 }

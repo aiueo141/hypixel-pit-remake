@@ -84,9 +84,17 @@ public final class WorldListener implements Listener {
         event.setCancelled(true);
     }
 
-    /** 流れる水・溶岩は空気のところにだけ広がる (カーペット・松明などを流して消さない)。 */
+    /**
+     * 溶岩は流れない (Lava Bucket で置いた溶岩はその 1 ブロックだけ)。
+     * 水は空気のところにだけ広がる (カーペット・松明などを流して消さない)。
+     */
     @EventHandler(ignoreCancelled = true)
     public void onFlow(BlockFromToEvent event) {
+        Material from = event.getBlock().getType();
+        if (from == Material.LAVA || from == Material.STATIONARY_LAVA) {
+            event.setCancelled(true);
+            return;
+        }
         Material target = event.getToBlock().getType();
         if (target != Material.AIR && !event.getToBlock().isLiquid()) {
             event.setCancelled(true);

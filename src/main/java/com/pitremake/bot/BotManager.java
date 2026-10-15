@@ -28,6 +28,11 @@ public final class BotManager implements Listener {
     private BukkitTask task;
     private int nextId = 1;
     private SkinPool skins;
+    /** KOTH 中の丘への道 (無ければ null)。半分の Bot (routed) がこれを使う。 */
+    private BotRoute route;
+    /** Spire の間は Bot を出さない。 */
+    private boolean paused;
+    private int autoTicks;
 
     public BotManager(JavaPlugin plugin, PitSpawn spawnArea) {
         this.plugin = plugin;
@@ -66,6 +71,11 @@ public final class BotManager implements Listener {
             PitBot bot = new PitBot(BotNames.random(used), location.get(), spawnArea, skins == null ? null : skins.random());
             bot.spawn();
             bots.add(bot);
+            if (route != null) {
+                // KOTH 中に増えた Bot も半分くらいは丘へ
+                long routed = bots.stream().filter(PitBot::isRouted).count();
+                bot.setRouted(routed < bots.size() / 2);
+            }
         }
     }
 
@@ -98,6 +108,35 @@ public final class BotManager implements Listener {
         return count;
     }
 
+    /**
+     * スポーンの外で一定時間 (config の bots.idle-oof-seconds、初期値 10 秒) 相手が見つからない Bot は /oof
+     * (死んだ扱い: 少し前に殴った人がいればその人のキル。スポーンに戻る)。Spire の塔の中の Bot はしない。
+     */
+    private void idleOof(PitBot bot) {
+        if (!(plugin instanceof com.pitremake.PitPlugin)) {
+            return;
+        }
+        com.pitremake.PitPlugin pit = (com.pitremake.PitPlugin) plugin;
+        int seconds = plugin.getConfig().getInt("bots.idle-oof-seconds", 10);
+        Player entity = bot.entity();
+        if (seconds <= 0 || entity == null || !bot.idleFor(seconds * 20) || bot.isFlying()
+                || (pit.getSpireEvent() != null && pit.getSpireEvent().inSpire(entity))) {
+            return;
+        }
+        // 死んだ扱いでスポーンに出し直される (BotManager.respawn → 数え直しもそこで)
+        pit.getKillListener().oof(entity);
+    }
+
+    /** KOTH の始まり (route) と終わり (null)。出ている Bot の半分をランダムに丘へ向かわせる。 */
+    public void setRoute(BotRoute route) {
+        this.route = route;
+        List<PitBot> shuffled = new ArrayList<>(bots);
+        java.util.Collections.shuffle(shuffled);
+        for (int i = 0; i < shuffled.size(); i++) {
+            shuffled.get(i).setRouted(route != null && i < shuffled.size() / 2);
+        }
+    }
+
     public int count() {
         return bots.size();
     }
@@ -109,6 +148,16 @@ public final class BotManager implements Listener {
             lines.add(bot.describe());
         }
         return lines;
+    }
+
+    /** ランチャーパッドで飛んでいる途中の Bot か (その間は無敵)。 */
+    public boolean isFlying(Player player) {
+        for (PitBot bot : bots) {
+            if (bot.is(player)) {
+                return bot.isFlying();
+            }
+        }
+        return false;
     }
 
     public boolean isBot(Player player) {
@@ -168,12 +217,83 @@ public final class BotManager implements Listener {
                 }
             }
             try {
-                bot.tick(others);
+                Player entity = bot.entity();
+                if (entity != null && plugin instanceof com.pitremake.PitPlugin
+                        && ((com.pitremake.PitPlugin) plugin).getSpireEvent() != null) {
+                    // Spire の通路に落ちた Bot は床のエンドポータルに触る前に塔へ
+                    ((com.pitremake.PitPlugin) plugin).getSpireEvent().catchFallingBot(entity);
+                }
+                bot.tick(others, bot.isRouted() ? route : null);
+                idleOof(bot);
             } catch (RuntimeException e) {
                 plugin.getLogger().warning("Bot " + bot.getName() + " crashed and was removed: " + e);
                 bot.despawn();
                 bots.remove(bot);
             }
+        }
+        if (++autoTicks >= AUTO_INTERVAL_TICKS) {
+            autoTicks = 0;
+            autoPopulate();
+        }
+    }
+
+    private static final int AUTO_INTERVAL_TICKS = 20;
+    /** 1 秒に増やす数 (一度にたくさん出すと重いので)。 */
+    private static final int AUTO_SPAWN_PER_SECOND = 2;
+
+    /** 今いるべき Bot の数: config の bots.base (10) + 本物のプレイヤー 1 人ごとに bots.per-player (5)。Spire の間は 0。 */
+    public int targetCount() {
+        if (paused || !plugin.getConfig().getBoolean("bots.auto", true)) {
+            return -1;
+        }
+        int players = 0;
+        for (Player player : plugin.getServer().getOnlinePlayers()) {
+            if (!isBot(player)) {
+                players++;
+            }
+        }
+        return plugin.getConfig().getInt("bots.base", 10) + plugin.getConfig().getInt("bots.per-player", 5) * players;
+    }
+
+    /** 1 秒ごと: 足りなければスポーンの復活地点に出し、多すぎれば消す。 */
+    private void autoPopulate() {
+        if (paused) {
+            if (!bots.isEmpty()) {
+                removeAll();
+            }
+            return;
+        }
+        int target = targetCount();
+        if (target < 0) {
+            return;
+        }
+        if (bots.size() < target) {
+            spawn(spawnArea::randomPoint, Math.min(AUTO_SPAWN_PER_SECOND, target - bots.size()));
+        } else if (bots.size() > target) {
+            removeSome(bots.size() - target);
+        }
+    }
+
+    /** 後から出した Bot から count 体消す (飛んでいる途中の Bot は後回し)。 */
+    public int removeSome(int count) {
+        int removed = 0;
+        for (int i = bots.size() - 1; i >= 0 && removed < count; i--) {
+            PitBot bot = bots.get(i);
+            if (bot.isFlying()) {
+                continue;
+            }
+            bot.despawn();
+            bots.remove(i);
+            removed++;
+        }
+        return removed;
+    }
+
+    /** Spire の始まり (true: 全部消す) と終わり (false: また出す)。 */
+    public void setPaused(boolean paused) {
+        this.paused = paused;
+        if (paused) {
+            removeAll();
         }
     }
 

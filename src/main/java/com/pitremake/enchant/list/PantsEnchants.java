@@ -3,6 +3,11 @@ package com.pitremake.enchant.list;
 import com.pitremake.enchant.DescribedEnchant;
 import com.pitremake.enchant.EnchantRegistry;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+
 import static com.pitremake.enchant.DescribedEnchant.levels;
 import static com.pitremake.enchant.DescribedEnchant.lines;
 import static com.pitremake.enchant.EnchantCategory.PANTS;
@@ -15,6 +20,13 @@ import static com.pitremake.enchant.EnchantRarity.UNCOMMON;
  * 全アイテム共通のリソース系は {@link ResourceEnchants} にある。
  */
 public final class PantsEnchants {
+
+    public static final String PIT_MBA = "pit_mba";
+    public static final String FRACTIONAL_RESERVE = "fractional_reserve";
+    public static final String PAPARAZZI = "paparazzi";
+    /** オークションでしか手に入らないエンチャント (pit.wiki/Auction)。Mystic Well の抽選には出ない。 */
+    public static final Set<String> AUCTION_ONLY = Collections.unmodifiableSet(
+            new HashSet<>(Arrays.asList(PIT_MBA, FRACTIONAL_RESERVE, PAPARAZZI)));
 
     private PantsEnchants() {
     }
@@ -219,5 +231,20 @@ public final class PantsEnchants {
                 lines("§7Spawn a §cWolf §7every 4 kills.", "§7Can have up to §c5 §7wolves at", "§7once"),
                 lines("§7Spawn a §cWolf §7every 3 kills.", "§7Can have up to §c7 §7wolves at", "§7once"),
                 lines("§7Spawn a §cWolf §7every 3 kills.", "§7Can have up to §c9 §7wolves at", "§7once"))));
+
+        // オークションでしか手に入らない (Mystic Well では付かない: {@link #AUCTION_ONLY})。説明文は pitpal.rocks
+        registry.register(new DescribedEnchant(PIT_MBA, "Pit MBA", PANTS, COMMON, levels(
+                lines("§7Receive §6+10% gold §7and §b+10%", "§bXP §7on kill when there are at", "§7least 5 players within 15 blocks"),
+                lines("§7Receive §6+30% gold §7and §b+20%", "§bXP §7on kill when there are at", "§7least 5 players within 15 blocks"),
+                lines("§7Receive §6+50% gold §7and §b+30%", "§bXP §7on kill when there are at", "§7least 5 players within 15 blocks")), true));
+        registry.register(new DescribedEnchant(FRACTIONAL_RESERVE, "Fractional Reserve", PANTS, COMMON, levels(
+                lines("§7Receive §9-1% damage §7per", "§7§610,000g §7you have (§9-15%§7", "§7max)"),
+                lines("§7Receive §9-1% damage §7per", "§7§610,000g §7you have (§9-21%§7", "§7max)"),
+                lines("§7Receive §9-1% damage §7per", "§7§610,000g §7you have (§9-30%§7", "§7max)"))));
+        // 効果は SpireEvent (Major Event の終わりのボーナスを増やし、パンツの Lives を 2 減らす)
+        registry.register(new DescribedEnchant(PAPARAZZI, "Paparazzi", PANTS, RARE, levels(
+                lines("§7Earn §d+50% major event §7bonus", "§7rewards. Consume §c2 lives §7of", "§7this item per event."),
+                lines("§7Earn §d+100% major event §7bonus", "§7rewards. Consume §c2 lives §7of", "§7this item per event."),
+                lines("§7Earn §d+150% major event §7bonus", "§7rewards. Consume §c2 lives §7of", "§7this item per event."))));
     }
 }

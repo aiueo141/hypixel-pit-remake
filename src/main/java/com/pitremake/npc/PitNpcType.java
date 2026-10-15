@@ -13,7 +13,11 @@ public enum PitNpcType {
     /** 見た目だけの Hypixel のランクを付ける (録画の THE KEEPER の位置に置く)。 */
     RANKS("§6§lRANKS", "§7Cosmetic ranks", Villager.Profession.LIBRARIAN),
     /** 録画 2026-10-14_08-03-51.mcrc のマップでは司祭 (紫)。 */
-    PRESTIGE("§e§lPRESTIGE", "§7Resets & Renown", Villager.Profession.PRIEST);
+    PRESTIGE("§e§lPRESTIGE", "§7Resets & Renown", Villager.Profession.PRIEST),
+    /** 録画 2026-10-15_10-32-13.mcrc: (13.5, 114, 4.5) のファーマー。右クリックで My pit stats。 */
+    STATS("§3§lSTATS", "§7View your stats", Villager.Profession.FARMER),
+    /** 録画 2026-10-15_10-32-13.mcrc: (12.5, 114, -4.5) のライブラリアン。右クリックで Quests &amp; Contracts。 */
+    QUEST_MASTER("§b§lQUEST MASTER", "§7Quests & Contracts", Villager.Profession.LIBRARIAN);
 
     /** 文字の高さ (村人の足元から)。 */
     static final double TITLE_HEIGHT = 2.156;

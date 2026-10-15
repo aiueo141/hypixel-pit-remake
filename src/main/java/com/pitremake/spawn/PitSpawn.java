@@ -51,7 +51,7 @@ public final class PitSpawn implements Listener {
     /** 復活地点の一覧 ("x,y,z,yaw")。 */
     public List<Location> points() {
         List<Location> points = new ArrayList<>();
-        for (String raw : config().getStringList("spawn.points")) {
+        for (String raw : rawPoints()) {
             Location point = parse(world(), raw);
             if (point != null) {
                 points.add(point);
@@ -60,18 +60,46 @@ public final class PitSpawn implements Listener {
         return points;
     }
 
-    /** ランダムな復活地点 (無ければワールドのスポーン)。 */
+    /** KOTH 中の丘の位置 {x, z} (無ければ null)。その間はここに一番近い復活地点だけを使う。 */
+    private double[] focus;
+
+    public void setFocus(double[] focus) {
+        this.focus = focus;
+    }
+
+    /** ランダムな復活地点 (無ければワールドのスポーン)。KOTH 中は丘に一番近い 1 か所だけ。 */
     public Location randomPoint() {
         List<Location> points = points();
         if (points.isEmpty()) {
             return world().getSpawnLocation();
         }
+        if (focus != null) {
+            return nearest(points, focus[0], focus[1]).clone();
+        }
         return points.get(ThreadLocalRandom.current().nextInt(points.size()));
     }
 
+    static Location nearest(List<Location> points, double x, double z) {
+        Location best = points.get(0);
+        for (Location point : points) {
+            if (Math.hypot(point.getX() - x, point.getZ() - z) < Math.hypot(best.getX() - x, best.getZ() - z)) {
+                best = point;
+            }
+        }
+        return best;
+    }
+
     /** 向きは 45° 単位に揃える。 */
+    /** config.yml の spawn.points (ゲーム内で足したとき) があればそれ、無ければプラグインの中の今のマップの spawn-points。 */
+    private List<String> rawPoints() {
+        if (config().isSet("spawn.points")) {
+            return new ArrayList<>(config().getStringList("spawn.points"));
+        }
+        return new ArrayList<>(com.pitremake.map.MapData.of(plugin).getStringList("spawn-points"));
+    }
+
     public void addPoint(Location location) {
-        List<String> raw = new ArrayList<>(config().getStringList("spawn.points"));
+        List<String> raw = rawPoints();
         Location point = location.clone();
         point.setYaw(snapYaw(location.getYaw()));
         raw.add(format(point));

@@ -11,7 +11,8 @@ import org.bukkit.entity.Player;
  * 被弾側: プレステージなしで Lv79 以下 ×0.82、Lv80 以上 ×0.92 (レポートでは境界は Lv80〜94 のどこか)、
  *         プレステージ I ×0.95、それ以外 ×1.00
  * </pre>
- * レポートで調べたのは近接だけだが、アカウントごとの補正なので矢にも掛ける。Bot はプレステージなし。
+ * レポートで調べたのは近接だけだが、アカウントごとの補正なので矢にも掛ける。Bot は Bot のプレステージ。
+ * E (足し算でまとめる増減) には入れず、最後に掛ける L (regularity.html: 1 撃目 = x0 × E × L × 防具)。
  */
 public final class AccountDamage implements DamageModifier {
 
@@ -33,8 +34,9 @@ public final class AccountDamage implements DamageModifier {
         if (!context.byPlayer()) {
             return;
         }
-        context.increase(attackerBonus(prestige(context.attacker)));
-        context.reduce(victimReduction(prestige(context.victim), level(context.victim)));
+        // E (足し算でまとめる増減) ではなく、その外の L として掛ける (ユーザーの調査 regularity.html)
+        context.multiply(1 + attackerBonus(prestige(context.attacker)));
+        context.multiply(1 - victimReduction(prestige(context.victim), level(context.victim)));
     }
 
     static double attackerBonus(int prestige) {

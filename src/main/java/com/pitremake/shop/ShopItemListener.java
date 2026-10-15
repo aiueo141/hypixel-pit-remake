@@ -232,7 +232,7 @@ public final class ShopItemListener implements Listener, DamageModifier {
                 continue;
             }
             if (plugin.getGoldManager().take(id, ItemShopMenu.cost(plugin, player, item))) {
-                ItemShopMenu.deliver(plugin, player, item);
+                ItemShopMenu.deliver(plugin, player, item, true);
                 player.sendMessage("§a§lAUTOBUY! §6" + item.getDisplayName());
             }
         }

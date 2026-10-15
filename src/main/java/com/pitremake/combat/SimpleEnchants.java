@@ -102,8 +102,9 @@ public final class SimpleEnchants implements DamageModifier, Listener {
                         checkPantsSwap(player);
                         selfCheckout(player);
                         if (plugin.getPitSpawn().isProtected(player.getLocation())) {
-                            // スポーンに戻ったら Phoenix がまた使える
+                            // スポーンに戻ったら Phoenix と Escape Pod がまた使える (それまでは誰に殴られても発動しない)
                             phoenixUsed.remove(player.getUniqueId());
+                            escapePodUsed.remove(player.getUniqueId());
                         }
                     }
                 }
@@ -634,20 +635,38 @@ public final class SimpleEnchants implements DamageModifier, Listener {
     private static final double ARMOR_DROP_CHANCE = 0.30;
 
     /**
-     * キルしたとき: 相手の着ているダイヤの防具が 1 つずつ確率で落ちる (pit.wiki: 普通は 30%)。
-     * キルした人が Lodbrok を履いていれば確率が上がる。持ち物の処理 (死ぬと無くなる) の前に呼ぶ。
+     * キルしたとき: 相手の着ているダイヤの防具のうち 1 つを選び、確率 (pit.wiki: 普通は 30%) で落とす
+     * (前は 1 つずつ判定していて落ちやすすぎた: ユーザーの指摘)。キルした人が Lodbrok を履いていれば確率が上がる。
+     * Archangel Chestplate (Golden Helmet / Armageddon Boots も)・ミスティック・Beastmode のヘルメットは落とさない。
+     * 持ち物の処理 (死ぬと無くなる) の前に呼ぶ。
      */
     public void armorDrops(Player killer, Player victim) {
         Integer lodbrok = pants(killer).get("increase_armor_drops");
         double chance = lodbrok == null ? ARMOR_DROP_CHANCE : EnchantNumbers.percent(enchant("increase_armor_drops"), lodbrok, 0);
+        java.util.List<ItemStack> candidates = new java.util.ArrayList<>();
         for (ItemStack armor : victim.getInventory().getArmorContents()) {
-            // Beastmode のヘルメットは死んでも残るので落とさない (増えてしまう)
-            boolean beastHelmet = armor != null && armor.hasItemMeta() && "§aBeastmode Helmet".equals(armor.getItemMeta().getDisplayName());
-            if (armor != null && !beastHelmet && armor.getType().name().startsWith("DIAMOND_")
-                    && java.util.concurrent.ThreadLocalRandom.current().nextDouble() < chance) {
-                victim.getWorld().dropItemNaturally(victim.getLocation(), armor.clone());
+            if (canDropOnKill(armor)) {
+                candidates.add(armor);
             }
         }
+        java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
+        if (!candidates.isEmpty() && random.nextDouble() < chance) {
+            victim.getWorld().dropItemNaturally(victim.getLocation(), candidates.get(random.nextInt(candidates.size())).clone());
+        }
+    }
+
+    /** キルで落ちる防具: 普通のダイヤの防具だけ。 */
+    static boolean canDropOnKill(ItemStack armor) {
+        if (armor == null || !armor.getType().name().startsWith("DIAMOND_") || MysticItems.isMystic(armor)) {
+            return false;
+        }
+        for (com.pitremake.item.RewardItems.Type type : com.pitremake.item.RewardItems.Type.values()) {
+            if (com.pitremake.item.RewardItems.is(armor, type)) {
+                return false;
+            }
+        }
+        // Beastmode のヘルメットは死んでも残るので落とさない (増えてしまう)
+        return !(armor.hasItemMeta() && "§aBeastmode Helmet".equals(armor.getItemMeta().getDisplayName()));
     }
 
     // ---------------------------------------------------------------- Self-checkout
@@ -719,14 +738,27 @@ public final class SimpleEnchants implements DamageModifier, Listener {
     /**
      * 最後のダメージが決まった後 (DamageCalculator から): 攻撃を止めるなら true。
      * Escape Pod (録画 2026-10-14_23-04-53.mcrc): 2❤ 未満になる一撃は当たらず、真上に打ち上がる (速さ 3.9)。
-     *   その場所に hugeexplosion と random.explode (1.0 / 0.89)、近くの敵に 1 / 2 / 3❤、Regen II / III / IV (20 / 25 / 30 秒)。1 人生 1 回
+     *   その場所に hugeexplosion と random.explode (1.0 / 0.89)、近くの敵に 1 / 2 / 3❤、Regen II / III / IV (20 / 25 / 30 秒)。
+     *   1 回発動したらスポーンに戻るまで (死ぬか、生きたままスポーンに入るまで) 発動しない
      * Phoenix (録画 2026-10-14_23-05-32.mcrc): 倒れる一撃は当たらず、パンツの Lives を 1 使って体力が全部戻る。
      *   mob.bat.death (1.0 / 0.49) と頭の高さに lava 30 個 (散らばり 0.2 / 0.1 / 0.2、速さ 4)。
      *   スポーンから出て戻るまでに 1 回だけ (ユーザーの指定)。III は +15% (10 秒)
+     * どちらも落下・溶岩・自分の矢など自分で減らした体力でも発動する。Somber の人の一撃では
+     * (Armageddon Boots を履いていても) 発動しない (ユーザーの指定)。
      */
     public boolean interceptHit(DamageContext context, double healthLeft) {
         Player victim = context.victim;
-        if (MysticAccess.disabled(victim, context.attacker)) {
+        org.bukkit.event.entity.EntityDamageEvent.DamageCause cause = context.event.getCause();
+        if (cause == org.bukkit.event.entity.EntityDamageEvent.DamageCause.VOID
+                || cause == org.bukkit.event.entity.EntityDamageEvent.DamageCause.SUICIDE) {
+            return false;
+        }
+        // Somber の人は見えない扱い: Somber の一撃では Armageddon Boots を履いていても発動しない (ユーザーの指定)
+        if (context.byPlayer() && MysticAccess.wearsSomber(context.attacker)) {
+            return false;
+        }
+        // 落下・溶岩・自分の矢など自分で減らした体力 (attacker が居ない) でも発動する
+        if (MysticAccess.disabled(victim, context.byPlayer() ? context.attacker : null)) {
             return false;
         }
         Map<String, Integer> pants = pants(victim);
@@ -760,8 +792,9 @@ public final class SimpleEnchants implements DamageModifier, Listener {
         effect(player, PotionEffectType.REGENERATION, regenSeconds[index(level)] * 20, Math.min(level, 3));
         double damage = EnchantNumbers.hearts(enchant("escape_pod"), level, 0);
         for (Player target : at.getWorld().getPlayers()) {
+            // Somber (と Venom の毒) の人には当たらない。自分が Armageddon Boots を履いていれば Somber の人にも当たる
             if (target.equals(player) || target.isDead() || target.getLocation().distanceSquared(at) > ESCAPE_POD_RADIUS * ESCAPE_POD_RADIUS
-                    || plugin.getPitSpawn().isProtected(target.getLocation())) {
+                    || plugin.getPitSpawn().isProtected(target.getLocation()) || MysticAccess.disabled(player, target)) {
                 continue;
             }
             hurt(player, target, damage);
@@ -994,7 +1027,7 @@ public final class SimpleEnchants implements DamageModifier, Listener {
     }
 
     private static Map<String, Integer> sword(Player player) {
-        if (MysticAccess.isSuppressed(player)) {
+        if (MysticAccess.isSuppressed(player) || MysticAccess.mysticItemsBlocked(player)) {
             return Collections.emptyMap();
         }
         ItemStack held = player.getItemInHand();
@@ -1093,6 +1126,7 @@ public final class SimpleEnchants implements DamageModifier, Listener {
             context.increase(0.05);
         }
         if (!MysticAccess.disabled(victim, attacker)) {
+            // Dark Pants の Dark エンチャント (darkDefense) は Somber と一緒に付くので、Somber でも止めない
             defense(context, victim, attacker);
             darkDefense(context, victim, attacker);
         }
@@ -1490,7 +1524,7 @@ public final class SimpleEnchants implements DamageModifier, Listener {
         }
         // Hunt the Hunter III: Bounty Hunter を付けた相手からのダメージ -20%
         Integer hunt = pants.get("counter_bounty_hunter");
-        if (hunt != null && hunt >= 3 && plugin.getPerkManager().has(attacker, com.pitremake.perk.Perk.BOUNTY_HUNTER)) {
+        if (hunt != null && hunt >= 3 && plugin.getPerkManager().bountyHunting(attacker)) {
             context.reduce(0.20);
         }
         if (pants.containsKey("spite") && wearsLeather(attacker)) {
@@ -1502,6 +1536,30 @@ public final class SimpleEnchants implements DamageModifier, Listener {
     }
 
     /** Grim Reaper のキルの報酬の倍率 (無ければ 1)。 */
+    /** Pit MBA: 15 ブロック以内に他のプレイヤーが 5 人以上いれば、キルのゴールド +10/30/50%・XP +10/20/30%。 */
+    public void addKillBoosts(Player killer, com.pitremake.stats.KillRewards.Boosts boosts) {
+        Integer mba = pants(killer).get(com.pitremake.enchant.list.PantsEnchants.PIT_MBA);
+        if (mba == null) {
+            return;
+        }
+        int players = 0;
+        for (org.bukkit.entity.Entity entity : killer.getNearbyEntities(PIT_MBA_RANGE, PIT_MBA_RANGE, PIT_MBA_RANGE)) {
+            if (entity instanceof Player && entity.getLocation().distanceSquared(killer.getLocation()) <= PIT_MBA_RANGE * PIT_MBA_RANGE) {
+                players++;
+            }
+        }
+        if (players < PIT_MBA_PLAYERS) {
+            return;
+        }
+        double[] gold = {0.10, 0.30, 0.50};
+        double[] xp = {0.10, 0.20, 0.30};
+        boosts.addGold(gold[index(mba)]);
+        boosts.addXp(xp[index(mba)]);
+    }
+
+    private static final double PIT_MBA_RANGE = 15;
+    private static final int PIT_MBA_PLAYERS = 5;
+
     public double killRewardMultiplier(Player killer) {
         return pants(killer).containsKey("grim_reaper") ? GRIM_REAPER_REWARDS : 1;
     }
@@ -1664,7 +1722,8 @@ public final class SimpleEnchants implements DamageModifier, Listener {
         org.bukkit.inventory.PlayerInventory inventory = killer.getInventory();
         for (boolean pantsSlot : new boolean[]{false, true}) {
             ItemStack item = pantsSlot ? inventory.getLeggings() : killer.getItemInHand();
-            if (!MysticItems.isMystic(item)) {
+            // Somber を履いていると剣の Hidden Jewel は数えない
+            if (!MysticItems.isMystic(item) || (!pantsSlot && MysticAccess.mysticItemsBlocked(killer))) {
                 continue;
             }
             MysticData data = MysticData.read(item);

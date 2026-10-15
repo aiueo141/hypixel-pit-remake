@@ -163,6 +163,15 @@ public final class ItemShopMenu implements ClickMenu {
         new ItemShopMenu(plugin, player).open();
     }
 
+    private static boolean isRewardItem(ItemStack item) {
+        for (com.pitremake.item.RewardItems.Type type : com.pitremake.item.RewardItems.Type.values()) {
+            if (com.pitremake.item.RewardItems.is(item, type)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** そのショップのアイテムを持っている (着ている) か。Iron Pack は 3 つとも着ているとき。 */
     static boolean has(Player player, ShopItem shopItem) {
         PlayerInventory inventory = player.getInventory();
@@ -187,9 +196,20 @@ public final class ItemShopMenu implements ClickMenu {
 
     /** 買ったアイテムを渡す (防具は "Auto-equips on buy!")。Barbarian なら Diamond Sword はすぐ斧に。 */
     static void deliver(PitPlugin plugin, Player player, ShopItem shopItem) {
+        deliver(plugin, player, shopItem, false);
+    }
+
+    /**
+     * keepEquipped: Autobuy のとき。その場所にミスティック (Archangel / Armageddon / Golden Helmet を含む) を着ていたら
+     * 買った防具は着せずにインベントリへ (ユーザーの指定)。
+     */
+    static void deliver(PitPlugin plugin, Player player, ShopItem shopItem, boolean keepEquipped) {
+        if (shopItem.name().startsWith("DIAMOND_")) {
+            plugin.getPlayerProfiles().add(player.getUniqueId(), com.pitremake.data.PitStat.DIAMOND_ITEMS_PURCHASED, 1);
+        }
         for (ItemStack item : shopItem.createAll()) {
             if (shopItem.isArmor()) {
-                equip(player, item, shopItem == ShopItem.IRON_PACK);
+                equip(player, item, shopItem == ShopItem.IRON_PACK, keepEquipped);
             } else {
                 for (ItemStack leftover : player.getInventory().addItem(item).values()) {
                     player.getWorld().dropItem(player.getLocation(), leftover);
@@ -203,7 +223,7 @@ public final class ItemShopMenu implements ClickMenu {
      * 防具の場所に着せ、元の防具はインベントリへ。onlyIfBetter (Iron Pack) のときは、空いている場所か
      * 鉄より弱いもの (革・チェーン。ミスティックパンツは除く) の場所だけに着せ、それ以外はインベントリへ。
      */
-    private static void equip(Player player, ItemStack armor, boolean onlyIfBetter) {
+    private static void equip(Player player, ItemStack armor, boolean onlyIfBetter, boolean keepMystic) {
         PlayerInventory inventory = player.getInventory();
         ItemStack old;
         String type = armor.getType().name();
@@ -214,8 +234,9 @@ public final class ItemShopMenu implements ClickMenu {
         } else {
             old = inventory.getBoots();
         }
-        if (onlyIfBetter && old != null && old.getType() != Material.AIR
-                && (MysticItems.isMystic(old) || !(old.getType().name().startsWith("LEATHER_") || old.getType().name().startsWith("CHAINMAIL_")))) {
+        boolean mysticWorn = old != null && old.getType() != Material.AIR && (MysticItems.isMystic(old) || isRewardItem(old));
+        if ((keepMystic && mysticWorn) || (onlyIfBetter && old != null && old.getType() != Material.AIR
+                && (mysticWorn || !(old.getType().name().startsWith("LEATHER_") || old.getType().name().startsWith("CHAINMAIL_"))))) {
             for (ItemStack leftover : inventory.addItem(armor).values()) {
                 player.getWorld().dropItem(player.getLocation(), leftover);
             }

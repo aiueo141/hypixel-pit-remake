@@ -8,6 +8,7 @@ import com.pitremake.perk.PerkItems;
 import com.pitremake.special.SpecialItems;
 import com.pitremake.stats.KillRewards;
 import com.pitremake.util.NbtUtil;
+import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer;
 import org.bukkit.entity.Item;
@@ -16,6 +17,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerPickupItemEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -363,7 +365,8 @@ public final class KillstreakManager implements Listener, DamageModifier {
         // 殴られた側
         int toughSkin = stack(victim, Killstreak.TOUGH_SKIN);
         if (toughSkin > 0) {
-            context.reduce(0.03 * toughSkin);
+            // E の外で掛ける f_p (逆算レポート-1)
+            context.multiply(1 - 0.03 * toughSkin);
         }
         if (hasBuff(victim, "counter")) {
             context.reduceFlat(2);
@@ -407,6 +410,17 @@ public final class KillstreakManager implements Listener, DamageModifier {
 
     private static int kind(ItemStack item) {
         return item == null || item.getType() == Material.AIR ? 0 : NbtUtil.getInt(item, ITEM_KEY);
+    }
+
+    /**
+     * キルストリークでもらった道具 (Aura of Protection / Smelly Bomb / Steak / Assembler / Glass Pickaxe / Ice Cube) は
+     * 捨てられない (Q キーでも、画面の外へ出しても)。パークのアイテムと同じくクリエイティブなら捨てられる。
+     */
+    @EventHandler(ignoreCancelled = true)
+    public void onDrop(PlayerDropItemEvent event) {
+        if (event.getPlayer().getGameMode() != GameMode.CREATIVE && kind(event.getItemDrop().getItemStack()) != 0) {
+            event.setCancelled(true);
+        }
     }
 
     @EventHandler(priority = EventPriority.LOW)

@@ -50,12 +50,15 @@ public final class MysticWellRoller {
         // 最初にこの強化で使えるレベル数を決め、それを使い切るまで追加・強化を繰り返す
         Roll roll = new Roll(data.getEnchants().keySet(), rareLevelCap(data), WellRules.rollBudget(random, tier));
         while (roll.budget > 0 && totalTokens(data) < WellRules.MAX_TOKENS) {
-            int spent = applyLevel(data, type, rules, roll, random);
-            if (spent == 0) {
+            if (!applyLevel(data, type, rules, roll, random)) {
                 // 追加も強化もできなければ、残りのレベルは捨てて終了する
                 break;
             }
-            roll.budget -= spent;
+            roll.budget--;
+            if (roll.newRare != null && data.getEnchantLevel(roll.newRare) >= registry.get(roll.newRare).getMaxLevel()) {
+                // 新しい RARE がいきなり最大レベルになったら、残りのレベルは捨てて終了する (他のエンチャントは変わらない)
+                break;
+            }
         }
         if (data.getEnchants().containsKey(HIDDEN_JEWEL)) {
             // Hidden Jewel の付いたアイテムも普通に強化され (エンチャントが増える)、Hidden Jewel のレベルは Tier と同じになる
@@ -217,6 +220,10 @@ public final class MysticWellRoller {
         final Set<String> enchantsBefore;
         final int rareLevelCap;
         int budget;
+        /** この強化で新しく付いた RARE の key (無ければ null)。 */
+        String newRare;
+        /** この強化で newRare 以外のエンチャントが追加・強化されたか。 */
+        boolean othersChanged;
 
         Roll(Set<String> enchantsBefore, int rareLevelCap, int budget) {
             this.enchantsBefore = new HashSet<>(enchantsBefore);
@@ -261,21 +268,27 @@ public final class MysticWellRoller {
     }
 
     /**
-     * 残りレベル数から「新規追加」か「既存強化」を 1 回行い、消費したレベル数を返す。
-     * 通常は 1、RARE を新しく付けたときは 1 + {@link WellRules#RARE_EXTRA_COST}。
-     * 片方に候補が無ければもう片方を選び、どちらも無ければ 0 を返す。
+     * 残りレベル数から 1 レベルを使い、「新規追加」か「既存強化」を 1 回行う。
+     * 片方に候補が無ければもう片方を選び、どちらも無ければ何もせず false を返す。
      */
-    private int applyLevel(MysticData data, MysticType type, TierEnchantRules rules, Roll roll, Random random) {
+    private boolean applyLevel(MysticData data, MysticType type, TierEnchantRules rules, Roll roll, Random random) {
         // RARE は 1 レベルでも上がる (付く) と合計が増えるので、上限未満のときだけ候補にする
         boolean rareRoom = rareLevelSum(data) < roll.rareLevelCap;
         boolean allowNewRare = rareRoom
-                && countNewRares(data, roll.enchantsBefore) < WellRules.MAX_NEW_RARES_PER_UPGRADE
-                && roll.budget >= 1 + WellRules.RARE_EXTRA_COST;
+                && countNewRares(data, roll.enchantsBefore) < WellRules.MAX_NEW_RARES_PER_UPGRADE;
         List<PitEnchant> newCandidates = data.getEnchants().size() < rules.getMaxEnchants()
                 ? newEnchantCandidates(data, type, rules, allowNewRare) : Collections.<PitEnchant>emptyList();
         List<PitEnchant> upgradeCandidates = upgradeCandidates(data, rules, rareRoom);
+        if (roll.newRare != null && roll.othersChanged) {
+            // 新しい RARE がいきなり最大レベルになるのは、他のエンチャントが何も変わらなかった強化だけ (real Pit:
+            // Sniper I, MLB I → Sniper I, MLB I, Telebow III)。他が変わっていたら最大レベルの 1 つ手前で止める
+            PitEnchant newRare = registry.get(roll.newRare);
+            if (data.getEnchantLevel(roll.newRare) >= newRare.getMaxLevel() - 1) {
+                upgradeCandidates.remove(newRare);
+            }
+        }
         if (newCandidates.isEmpty() && upgradeCandidates.isEmpty()) {
-            return 0;
+            return false;
         }
 
         boolean addNew;
@@ -288,12 +301,15 @@ public final class MysticWellRoller {
             addNew = random.nextDouble() * (addWeight + WellRules.UPGRADE_WEIGHT) < addWeight;
         }
 
-        if (addNew) {
-            PitEnchant added = addNewEnchant(data, newCandidates, random);
-            return added.getRarity() == EnchantRarity.RARE ? 1 + WellRules.RARE_EXTRA_COST : 1;
+        PitEnchant changed = addNew
+                ? addNewEnchant(data, newCandidates, random)
+                : upgradeExistingEnchant(data, upgradeCandidates, random);
+        if (addNew && changed.getRarity() == EnchantRarity.RARE) {
+            roll.newRare = changed.getKey();
+        } else if (!changed.getKey().equals(roll.newRare)) {
+            roll.othersChanged = true;
         }
-        upgradeExistingEnchant(data, upgradeCandidates, random);
-        return 1;
+        return true;
     }
 
     /**
@@ -389,9 +405,11 @@ public final class MysticWellRoller {
         return enchant;
     }
 
-    private static void upgradeExistingEnchant(MysticData data, List<PitEnchant> candidates, Random random) {
+    /** 候補から均等に 1 つ選んでレベルを 1 上げる。上げたものを返す。 */
+    private static PitEnchant upgradeExistingEnchant(MysticData data, List<PitEnchant> candidates, Random random) {
         PitEnchant enchant = candidates.get(random.nextInt(candidates.size()));
         data.setEnchant(enchant.getKey(), data.getEnchantLevel(enchant.getKey()) + 1);
+        return enchant;
     }
 
     private static int totalTokens(MysticData data) {

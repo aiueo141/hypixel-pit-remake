@@ -4,6 +4,7 @@ import com.pitremake.gem.GemItem;
 import com.pitremake.util.NbtUtil;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
+import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
@@ -15,6 +16,7 @@ import java.util.List;
  * <pre>
  * Philosopher's Cactus : 右クリックで通常 5 色の Fresh Pants を 1 つ選んでもらえる (pit.wiki/Philosophers_Cactus)
  * Funky Feather        : ホットバーにあると死亡時にインベントリを守る。代わりに 1 つ消費される (pit.wiki/Funky_Feather)
+ * Mystic Repair Kit    : 右クリックでミスティックを 1 つ選んで Lives を最大にする (pit.wiki/Mystic_Repair_Kit)
  * </pre>
  */
 public final class SpecialItems {
@@ -22,6 +24,7 @@ public final class SpecialItems {
     private static final String CACTUS_KEY = "PhilosophersCactus";
     private static final String FEATHER_KEY = "FunkyFeather";
     private static final String VILE_KEY = "ChunkOfVile";
+    private static final String REPAIR_KIT_KEY = "MysticRepairKit";
 
     private SpecialItems() {
     }
@@ -63,8 +66,29 @@ public final class SpecialItems {
     }
 
     /** 死亡してもインベントリに残る特殊アイテムか (Funky Feather / Philosopher's Cactus / Totally Legit Gem)。 */
+    /**
+     * Mystic Repair Kit (ユーザーのスクリーンショット、アイコンは pit.wiki のハサミ)。
+     * 右クリックで持っているミスティックを 1 つ選んで Lives を最大にする。死んでも無くならない。
+     */
+    public static ItemStack repairKit(int amount) {
+        ItemStack item = create(Material.SHEARS, amount, REPAIR_KIT_KEY, ChatColor.LIGHT_PURPLE + "Mystic Repair Kit", Arrays.asList(
+                ChatColor.YELLOW + "Special item",
+                ChatColor.RED + "Untradeable",
+                ChatColor.GRAY + "Right-click while holding this",
+                ChatColor.GRAY + "item to repair a mystic item."));
+        ItemMeta meta = item.getItemMeta();
+        meta.spigot().setUnbreakable(true);
+        meta.addItemFlags(ItemFlag.HIDE_UNBREAKABLE, ItemFlag.HIDE_ATTRIBUTES);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    public static boolean isRepairKit(ItemStack item) {
+        return item != null && item.getType() == Material.SHEARS && NbtUtil.has(item, REPAIR_KIT_KEY);
+    }
+
     public static boolean isKeptOnDeath(ItemStack item) {
-        return isFeather(item) || isCactus(item) || GemItem.isGem(item) || Uberdrop.is(item) || isVile(item);
+        return isFeather(item) || isCactus(item) || GemItem.isGem(item) || Uberdrop.is(item) || isVile(item) || isRepairKit(item);
     }
 
     private static ItemStack create(Material material, int amount, String key, String name, List<String> lore) {

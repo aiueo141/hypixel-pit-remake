@@ -27,7 +27,7 @@ import java.util.UUID;
  * 11 Dark Pants   : Chunk of Vile 5 個 (Heresy II で 4、III で 3) と 2 Renown で Fresh Dark Pants (アイコンは欠けた金床)
  * 13 Rage Pants   : Chunk of Vile 17 個で Fresh Rage Pants (Pure Rage が必要)
  * 15 Heresy       : 次の Tier を買う (II: 革の防具の相手に +5% / Dark Pants 4 個、III: Dark Pants 3 個・Tier II まで強化可)
- * 31 戻る / 32 Night Quests (切り替えだけ。Night Quest は未実装)
+ * 31 戻る / 32 Night Quests (オン・オフ。Night Quest は {@link com.pitremake.night.NightCycle})
  * </pre>
  * Hypixel では Dark Pants を作れるのは夜だけだが、ここでは昼夜を見ない。
  */
@@ -40,7 +40,7 @@ public final class HeresyMenu implements ClickMenu {
     private static final int NIGHT_QUESTS_SLOT = 32;
     private static final int DARK_RENOWN = 2;
     private static final int RAGE_VILE = 17;
-    static final String NIGHT_QUESTS_OFF = "nightquests-off";
+    public static final String NIGHT_QUESTS_OFF = "nightquests-off";
 
     private final PitPlugin plugin;
     private final Player player;

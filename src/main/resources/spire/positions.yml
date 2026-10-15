@@ -1,0 +1,7 @@
+# Spire の塔を出す場所 (マップごと)。"x,y,z,名前" x,y,z = 真ん中の真下の地面のブロック。
+# イベントのたびにランダムに 1 か所。サーバーの config.yml の spire.positions.<マップ> があればそちらを使う (/pit spire addpos で作られる)。
+seasons:
+- '-52,86,-57,Summer'
+- '58,98,-54,Autumn'
+- '-54,93,60,Spring'
+- '35,84,45,Winter'

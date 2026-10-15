@@ -38,8 +38,10 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -97,16 +99,27 @@ public final class PerkManager implements Listener, DamageModifier {
 
     /** サーバー停止時: 置いた溶岩を消す。 */
     public void stop() {
-        for (Location location : placedLava) {
-            Block block = location.getBlock();
-            if (block.getType() == Material.LAVA || block.getType() == Material.STATIONARY_LAVA) {
-                block.setType(Material.AIR);
-            }
+        for (Location location : new ArrayList<>(placedLava)) {
+            clearLava(location);
         }
         placedLava.clear();
     }
 
+    /** 置いた溶岩を消す (溶岩は流れないので、そのブロックだけ)。 */
+    private void clearLava(Location source) {
+        placedLava.remove(source);
+        Block block = source.getBlock();
+        if (block.getType() == Material.LAVA || block.getType() == Material.STATIONARY_LAVA) {
+            block.setType(Material.AIR);
+        }
+    }
+
     public boolean has(Player player, Perk perk) {
+        // Spire の塔の中では Vampire と Barbarian は効かない (pit.wiki)
+        if ((perk == Perk.VAMPIRE || perk == Perk.BARBARIAN) && plugin.getSpireEvent() != null
+                && plugin.getSpireEvent().inSpire(player)) {
+            return false;
+        }
         return plugin.getUpgradeManager().hasPerk(player.getUniqueId(), perk);
     }
 
@@ -137,6 +150,7 @@ public final class PerkManager implements Listener, DamageModifier {
             bonked.remove(id);
         }
         plugin.getRenownEffects().refresh(player);
+        removeUnequippedItems(player);
         if (has(player, Perk.MARATHON)) {
             ItemStack boots = player.getInventory().getBoots();
             if (boots != null && boots.getType() != Material.AIR) {
@@ -148,9 +162,92 @@ public final class PerkManager implements Listener, DamageModifier {
         }
     }
 
+    /** パークとそのパークのアイテム (外したら持ち物と防具から消す)。 */
+    private static final Map<Perk, PerkItems.Type[]> PERK_ITEMS = new java.util.EnumMap<>(Perk.class);
+
+    static {
+        PERK_ITEMS.put(Perk.BOUNTY_HUNTER, new PerkItems.Type[]{PerkItems.Type.GOLDEN_PANTS});
+        PERK_ITEMS.put(Perk.FISHING_ROD, new PerkItems.Type[]{PerkItems.Type.FISHING_ROD});
+        PERK_ITEMS.put(Perk.LAVA_BUCKET, new PerkItems.Type[]{PerkItems.Type.LAVA_BUCKET});
+        PERK_ITEMS.put(Perk.MINEMAN, new PerkItems.Type[]{PerkItems.Type.MINEMAN_PICKAXE, PerkItems.Type.MINEMAN_COBBLE});
+        PERK_ITEMS.put(Perk.SAFETY_FIRST, new PerkItems.Type[]{PerkItems.Type.SAFETY_HELMET});
+    }
+
+    /** 付けていないパークのアイテム (金のパンツ・釣り竿・溶岩バケツ・ピッケル・丸石・ヘルメット) を消す。 */
+    private void removeUnequippedItems(Player player) {
+        java.util.Set<PerkItems.Type> remove = java.util.EnumSet.noneOf(PerkItems.Type.class);
+        for (Map.Entry<Perk, PerkItems.Type[]> entry : PERK_ITEMS.entrySet()) {
+            // Spire の中などで一時的に効かないだけのパークは消さない (UpgradeManager で付けているかを見る)
+            if (!plugin.getUpgradeManager().hasPerk(player.getUniqueId(), entry.getKey())) {
+                remove.addAll(java.util.Arrays.asList(entry.getValue()));
+            }
+        }
+        if (remove.isEmpty()) {
+            return;
+        }
+        PlayerInventory inventory = player.getInventory();
+        boolean changed = false;
+        for (int slot = 0; slot < inventory.getSize(); slot++) {
+            if (remove.contains(PerkItems.of(inventory.getItem(slot)))) {
+                inventory.setItem(slot, null);
+                changed = true;
+            }
+        }
+        ItemStack[] armor = inventory.getArmorContents();
+        for (int i = 0; i < armor.length; i++) {
+            if (remove.contains(PerkItems.of(armor[i]))) {
+                armor[i] = null;
+                changed = true;
+            }
+        }
+        if (changed) {
+            inventory.setArmorContents(armor);
+            player.updateInventory();
+        }
+    }
+
+    /**
+     * Bounty Hunter が効いているか: パークを付けていて、そのパークの金のパンツを履いている
+     * (pit.wiki: 履いていなければ +4g・アシストの分け前・ダメージ増加のどれも効かない)。
+     */
+    public boolean bountyHunting(Player player) {
+        return has(player, Perk.BOUNTY_HUNTER) && PerkItems.of(player.getInventory().getLeggings()) == PerkItems.Type.GOLDEN_PANTS;
+    }
+
+    /**
+     * Bounty Hunter の金のパンツ (持っていなければ)。脚が空いているか初期装備 (チェーン・鉄) なら履かせ、
+     * ミスティックやダイヤを履いていればインベントリ (ホットバー) へ。いっぱいなら渡さない (次にスポーンしたとき、空きがあれば)。
+     */
+    private void giveGoldenPants(Player player) {
+        PlayerInventory inventory = player.getInventory();
+        if (!has(player, Perk.BOUNTY_HUNTER) || count(player, PerkItems.Type.GOLDEN_PANTS) > 0
+                || PerkItems.of(inventory.getLeggings()) == PerkItems.Type.GOLDEN_PANTS) {
+            return;
+        }
+        ItemStack legs = inventory.getLeggings();
+        if (legs == null || legs.getType() == Material.AIR) {
+            inventory.setLeggings(PerkItems.goldenPants());
+        } else if (isSpawnArmor(legs)) {
+            // 初期装備のパンツは消して履き替える
+            inventory.setLeggings(PerkItems.goldenPants());
+        } else {
+            give(player, PerkItems.goldenPants());
+        }
+        player.updateInventory();
+    }
+
+    /**
+     * パークを選んだ・買ったとき (アップグレードの画面から): そのパークのアイテム (金のパンツ・釣り竿・溶岩バケツ・
+     * Safety First のヘルメット・Mineman のピッケルと丸石) をすぐ渡す。持っているものは渡さず、持ち物がいっぱいなら渡さない。
+     */
+    public void onPerkSelected(Player player, Perk perk) {
+        giveSpawnItems(player);
+    }
+
     /** スポーンしたとき (初期装備の後): パークのアイテム。持っているものはもらわない。 */
     public void giveSpawnItems(Player player) {
         PlayerInventory inventory = player.getInventory();
+        giveGoldenPants(player);
         if (has(player, Perk.FISHING_ROD) && !inventory.contains(Material.FISHING_ROD)) {
             give(player, PerkItems.fishingRod());
         }
@@ -239,7 +336,7 @@ public final class PerkManager implements Listener, DamageModifier {
 
     /** キルの報酬に足す (KillRewards の計算前)。 */
     public void addBoosts(Player killer, Player victim, KillRewards.Boosts boosts) {
-        if (has(killer, Perk.BOUNTY_HUNTER)) {
+        if (bountyHunting(killer)) {
             boosts.flatGold += PerkRules.BOUNTY_HUNTER_GOLD;
         }
         if (has(killer, Perk.STREAKER)) {
@@ -281,7 +378,7 @@ public final class PerkManager implements Listener, DamageModifier {
         if (isPromoted(assister)) {
             gold += PerkRules.PROMOTION_GOLD;
         }
-        if (has(assister, Perk.BOUNTY_HUNTER)) {
+        if (bountyHunting(assister)) {
             gold += share * victimBounty;
         }
         return gold;
@@ -289,6 +386,10 @@ public final class PerkManager implements Listener, DamageModifier {
 
     /** アシストしたとき: Soup は Assist Soup、Assistant (to the) Streaker は参加の割合だけストリークが増える。 */
     public void onAssist(Player assister, double share) {
+        if (plugin.getSpireEvent().inSpire(assister)) {
+            // 塔の中ではアシストの Soup は無し
+            return;
+        }
         if (has(assister, Perk.SOUP) && soups(assister) < limit(assister, PerkRules.SOUP_LIMIT, has(assister, Perk.OVERHEAL))) {
             give(assister, PerkItems.assistSoup());
         }
@@ -387,6 +488,10 @@ public final class PerkManager implements Listener, DamageModifier {
 
     /** キルでもらう回復アイテム (金リンゴか、パークで置き換えたもの)。持てる数を超える分はもらわない。 */
     private void giveHealingItem(Player killer) {
+        if (plugin.getSpireEvent().giveHealingItem(killer)) {
+            // 塔の中は Fractured Soul
+            return;
+        }
         if (has(killer, Perk.VAMPIRE) || has(killer, Perk.RAMBO)) {
             return;
         }
@@ -425,7 +530,8 @@ public final class PerkManager implements Listener, DamageModifier {
             return;
         }
         boolean melee = event.getDamager() instanceof Player;
-        if (melee && has(attacker, Perk.KUNG_FU_KNOWLEDGE)) {
+        // Regularity の追撃は 1 撃目から計算した攻撃力のまま (Kung Fu の 7.4 で上書きしない)
+        if (melee && has(attacker, Perk.KUNG_FU_KNOWLEDGE) && !plugin.getDamageCalculator().isExtraStriking(attacker.getUniqueId())) {
             Material held = attacker.getItemInHand() == null ? Material.AIR : attacker.getItemInHand().getType();
             if (held.name().endsWith("_SWORD")) {
                 event.setCancelled(true);
@@ -460,11 +566,12 @@ public final class PerkManager implements Listener, DamageModifier {
     @Override
     public void modify(DamageContext context) {
         Player victim = context.victim;
+        // Gladiator・Marathon (殴られた側) は E (足し算) ではなく、その外で掛ける f_p (逆算レポート-1: スピード中は ×0.82)
         if (has(victim, Perk.GLADIATOR)) {
-            context.reduce(PerkRules.gladiatorReduction(nearbyPlayers(victim)));
+            context.multiply(1 - PerkRules.gladiatorReduction(nearbyPlayers(victim)));
         }
         if (has(victim, Perk.MARATHON) && victim.hasPotionEffect(PotionEffectType.SPEED)) {
-            context.reduce(PerkRules.MARATHON_BONUS);
+            context.multiply(1 - PerkRules.MARATHON_BONUS);
         }
         if (!context.byPlayer()) {
             return;
@@ -475,7 +582,7 @@ public final class PerkManager implements Listener, DamageModifier {
         if (stack != null && stack.expires >= System.currentTimeMillis() && has(attacker, Perk.STRENGTH_CHAINING)) {
             context.increase(PerkRules.strengthBonus(stack.stacks));
         }
-        if (has(attacker, Perk.BOUNTY_HUNTER)) {
+        if (bountyHunting(attacker)) {
             // Hunt the Hunter (相手のパンツ) で半分 / 無し
             context.increase(PerkRules.bountyHunterBonus(plugin.getBountyManager().get(victim.getUniqueId()))
                     * plugin.getSimpleEnchants().bountyHunterFactor(victim, attacker));
@@ -567,6 +674,7 @@ public final class PerkManager implements Listener, DamageModifier {
                 return;
             }
             lastHead.put(player.getUniqueId(), System.currentTimeMillis());
+            plugin.getPlayerProfiles().add(player.getUniqueId(), com.pitremake.data.PitStat.GOLDEN_HEADS_EATEN, 1);
             // Very Yummy! (Renown): 再生 +2 秒、衝撃吸収 +0.5❤
             boolean veryYummy = plugin.getUpgradeManager().hasRenown(player.getUniqueId(), RenownUpgrade.VERY_YUMMY);
             effect(player, PotionEffectType.SPEED, 8 * 20, 0);
@@ -623,11 +731,8 @@ public final class PerkManager implements Listener, DamageModifier {
         // 空になったバケツにもパークのアイテムの印を残す (捨てられない・もう一度汲める)
         event.setItemStack(PerkItems.lavaBucket(false));
         plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-            if (placedLava.remove(location)) {
-                Block lava = location.getBlock();
-                if (lava.getType() == Material.LAVA || lava.getType() == Material.STATIONARY_LAVA) {
-                    lava.setType(Material.AIR);
-                }
+            if (placedLava.contains(location)) {
+                clearLava(location);
             }
         }, PerkRules.LAVA_TICKS);
     }
@@ -639,17 +744,21 @@ public final class PerkManager implements Listener, DamageModifier {
             return;
         }
         Location location = event.getBlockClicked().getLocation();
-        if (!placedLava.remove(location)) {
+        if (!placedLava.contains(location)) {
             event.setCancelled(true);
             return;
         }
         event.setItemStack(PerkItems.lavaBucket(true));
+        // 汲んだ溶岩は Bukkit が空気にする
+        placedLava.remove(location);
     }
 
-    /** パークのアイテムは捨てられない。 */
+    /** パークのアイテム (Bounty Hunter の金のパンツ、Barbarian の斧も) は捨てられない。 */
     @EventHandler(ignoreCancelled = true)
     public void onDrop(PlayerDropItemEvent event) {
-        if (event.getPlayer().getGameMode() != GameMode.CREATIVE && PerkItems.of(event.getItemDrop().getItemStack()) != null) {
+        ItemStack item = event.getItemDrop().getItemStack();
+        boolean barbarianAxe = has(event.getPlayer(), Perk.BARBARIAN) && item.getType() == Material.IRON_AXE && isSpawnWeapon(item);
+        if (event.getPlayer().getGameMode() != GameMode.CREATIVE && (PerkItems.of(item) != null || barbarianAxe)) {
             event.setCancelled(true);
         }
     }
@@ -781,9 +890,21 @@ public final class PerkManager implements Listener, DamageModifier {
         }
     }
 
-    private static void give(Player player, ItemStack item) {
+    /**
+     * 持ち物に空きがあれば入れる (ホットバーが先)。いっぱいならパークのアイテムはもらえないだけ
+     * (捨てられないので足元には落とさない。金のパンツなどは次にスポーンしたとき、空きがあればもらえる)。
+     * パークのアイテムでない自分のアイテム (Marathon で脱がせたブーツ) は無くならないよう Item Stash へ。
+     */
+    private void give(Player player, ItemStack item) {
+        List<ItemStack> keep = new ArrayList<>();
         for (ItemStack leftover : player.getInventory().addItem(item).values()) {
-            player.getWorld().dropItem(player.getLocation(), leftover);
+            if (PerkItems.of(leftover) == null) {
+                keep.add(leftover);
+            }
+        }
+        if (!keep.isEmpty()) {
+            plugin.getItemStash().add(player.getUniqueId(), keep);
+            plugin.getItemStash().notify(player);
         }
     }
 

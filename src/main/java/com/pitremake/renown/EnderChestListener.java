@@ -54,7 +54,12 @@ public final class EnderChestListener implements Listener {
 
     /** そのプレイヤーのエンダーチェストの大きさ (Inventory Management で 1 Tier ごとに +1 行)。 */
     public int size(Player player) {
-        int tier = plugin.getRenownEffects().tier(player.getUniqueId(), RenownUpgrade.INVENTORY_MANAGEMENT);
+        return size(player.getUniqueId());
+    }
+
+    /** オフラインのプレイヤーにも使える (/view)。 */
+    public int size(UUID player) {
+        int tier = plugin.getRenownEffects().tier(player, RenownUpgrade.INVENTORY_MANAGEMENT);
         return BASE_SIZE + 9 * Math.min(Math.max(tier, 0), 3);
     }
 

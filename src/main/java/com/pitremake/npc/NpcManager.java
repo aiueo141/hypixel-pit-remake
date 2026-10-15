@@ -31,7 +31,7 @@ import java.util.function.BiConsumer;
 import java.util.logging.Level;
 
 /**
- * 村人 NPC の設置・削除と保存 (plugins/Pit/npcs.yml)。
+ * 村人 NPC の設置・削除と保存。場所はプラグインの中の maps/&lt;マップ&gt;.yml、ゲーム内で変えると plugins/Pit/npcs.yml (こちらが優先)。
  * 村人と文字のアーマースタンドはサーバー起動時に出し、停止時に消す (ワールドに残さない)。
  * 村人は動かず (NoAI)、ダメージを受けず、押されても元の位置に戻る。右クリックしても取引画面は開かない。
  */
@@ -241,15 +241,17 @@ public final class NpcManager implements Listener {
         }
     }
 
+    /** npcs.yml (ゲーム内で置き直したとき) があればそれ、無ければプラグインの中の今のマップの npcs (maps/&lt;マップ&gt;.yml)。 */
     private void load() {
-        YamlConfiguration yaml = YamlConfiguration.loadConfiguration(file);
+        YamlConfiguration yaml = file.exists() ? YamlConfiguration.loadConfiguration(file) : com.pitremake.map.MapData.of(plugin);
         for (Object raw : yaml.getList("npcs", new ArrayList<Object>())) {
             if (!(raw instanceof Map)) {
                 continue;
             }
             ConfigurationSection section = new YamlConfiguration().createSection("npc", (Map<?, ?>) raw);
             PitNpcType type = PitNpcType.fromName(section.getString("type"));
-            World world = plugin.getServer().getWorld(section.getString("world", ""));
+            World world = section.contains("world") ? plugin.getServer().getWorld(section.getString("world"))
+                    : plugin.getServer().getWorlds().get(0);
             if (type == null || world == null) {
                 plugin.getLogger().warning("Skipping NPC in npcs.yml: " + raw);
                 continue;

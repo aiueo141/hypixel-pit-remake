@@ -2,6 +2,7 @@ package com.pitremake.combat;
 
 import com.pitremake.PitPlugin;
 import com.pitremake.enchant.PitEnchant;
+import com.pitremake.enchant.list.PantsEnchants;
 import com.pitremake.item.MysticData;
 import com.pitremake.item.MysticItems;
 import com.pitremake.item.MysticType;
@@ -141,7 +142,7 @@ public final class EnchantEffects implements DamageModifier, Listener {
         }
         Player shooter = (Player) event.getEntity();
         Map<String, Integer> enchants = MysticData.read(event.getBow()).getEnchants();
-        if (enchants.isEmpty() || MysticAccess.isSuppressed(shooter)) {
+        if (enchants.isEmpty() || MysticAccess.isSuppressed(shooter) || MysticAccess.mysticItemsBlocked(shooter)) {
             return;
         }
         event.getProjectile().setMetadata(BOW_METADATA, new FixedMetadataValue(plugin, new HashMap<>(enchants)));
@@ -155,7 +156,7 @@ public final class EnchantEffects implements DamageModifier, Listener {
     public void modify(DamageContext context) {
         Player victim = context.victim;
         // Somber / Venom: エンチャントが効かない側はここで止める (MysticAccess)
-        boolean victimOff = MysticAccess.disabled(victim, context.byPlayer() ? context.attacker : null);
+        boolean victimOff = MysticAccess.defenseDisabled(victim, context.byPlayer() ? context.attacker : null);
         Map<String, Integer> pants = victimOff ? Collections.<String, Integer>emptyMap() : pantsEnchants(victim);
         // Guardian / Protection はどのダメージにも効く
         if (!victimOff && hasEnchant(victim.getInventory().getChestplate(), "guardian")) {
@@ -180,6 +181,10 @@ public final class EnchantEffects implements DamageModifier, Listener {
             return;
         }
         Player attacker = context.attacker;
+        // Somber の着用者は受けるダメージの E に +0.20 (逆算レポート-1: 装備や攻撃者によらず +0.20 に集中。Wiki に記載なし)
+        if (MysticAccess.wearsSomber(victim)) {
+            context.increase(SOMBER_DAMAGE_TAKEN);
+        }
         defense(context, pants, attacker);
         // Combo: Venom は自分が Venom の毒で止まっている間も発動できる (ユーザーの指定) ので、止める判定より前
         if (context.melee && !context.isExtraStrike()) {
@@ -207,6 +212,10 @@ public final class EnchantEffects implements DamageModifier, Listener {
             context.reduce(percent(pants, "less_damage_vs_bounties", 0));
         }
         context.reduce(percent(pants, "less_damage_when_high_bounty", 0) * (plugin.getBountyManager().get(victim.getUniqueId()) / 1000));
+        Integer reserve = pants.get(PantsEnchants.FRACTIONAL_RESERVE);
+        if (reserve != null) {
+            context.reduce(fractionalReserve(reserve, plugin.getGoldManager().get(victim.getUniqueId())));
+        }
         if (onGrass(victim) || onGrass(attacker)) {
             context.reduce(percent(pants, "less_damage_on_grass", 0));
         }
@@ -256,9 +265,16 @@ public final class EnchantEffects implements DamageModifier, Listener {
             double below = EnchantNumbers.hearts(enchant("regularity"), regularity, 0);
             double share = EnchantNumbers.percent(enchant("regularity"), regularity, 0);
             double base = context.baseDamage;
+            double fixed = fixedDamage(attacker);
             context.afterHit(finalDamage -> {
-                double firstMultiplier = context.multiplier();
-                double firstFlat = context.flat();
+                // 追撃 = s × (x0 × E + F) × E (ユーザーの調査 regularity.html、録画 536 組):
+                // 1 撃目の攻撃力 x0 (クリティカル込み) に E を掛けたものを土台に、武器の固定分 F をもう一度足し、
+                // もう一度 E を掛けて s (75% / 60%) を掛ける。増加は追撃で 2 回効く。
+                double e = context.enchantMultiplier();
+                double x0 = base + context.flat();
+                // 追撃 = s × (x0 × E + F) × E × L (L はアカウントの補正。1 回だけ)
+                double firstMultiplier = s(share) * e * context.outerMultiplier();
+                double firstFlat = x0 * e + fixed - base;
                 // 衝撃吸収で受けた分は数えず、本当に減った体力で判定する (finalDamage は衝撃吸収の分を引いた後の値)。
                 // 同じ一撃の確定ダメージ (Gamble など) も足して判定する
                 // (録画 victim.mcrc: Gamble で相手に 3❤ 入った一撃 (1.65 + 6) には追撃が無く、自分に来た一撃には追撃があった)
@@ -271,12 +287,11 @@ public final class EnchantEffects implements DamageModifier, Listener {
                                 context.getDealtTrueDamage(), dealt) : "",
                         dealt < below ? "<" : "≥", below,
                         dealt < below ? "strike again in " + REGULARITY_DELAY_TICKS + " ticks (base "
-                                + String.format(java.util.Locale.US, "%.3f ×%.3f", base, context.multiplier() * (1 + share)) + ")" : "no strike"));
+                                + String.format(java.util.Locale.US, "%.3f, F %.1f, s %.2f", base, fixed, share) + ")" : "no strike"));
                 if (dealt < below) {
                     plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
                         if (attacker.isOnline() && !victim.isDead() && victim.isValid()) {
-                            // 追撃は最初の一撃と同じ攻撃力・同じ倍率に × 1.75 (録画: どの相手でもちょうど 1.75 倍)
-                            plugin.getDamageCalculator().extraStrike(attacker, victim, base, firstMultiplier * (1 + share), firstFlat);
+                            plugin.getDamageCalculator().extraStrike(attacker, victim, base, firstMultiplier, firstFlat);
                         }
                     }, REGULARITY_DELAY_TICKS);
                 }
@@ -284,7 +299,8 @@ public final class EnchantEffects implements DamageModifier, Listener {
         }
 
         ItemStack held = attacker.getItemInHand();
-        if (MysticType.of(held) != MysticType.SWORD || !MysticItems.isMystic(held)) {
+        // Somber を履いていると Mystic の剣のエンチャントは効かない
+        if (MysticType.of(held) != MysticType.SWORD || !MysticItems.isMystic(held) || MysticAccess.mysticItemsBlocked(attacker)) {
             return;
         }
         Map<String, Integer> sword = MysticData.read(held).getEnchants();
@@ -507,6 +523,12 @@ public final class EnchantEffects implements DamageModifier, Listener {
     }
 
     /** 近く (range ブロック以内) にいる自分以外のプレイヤー (Bot も含む) の数。 */
+    /** Fractional Reserve: 持っているゴールド 10,000g ごとに -1% (最大 -15% / -21% / -30%)。 */
+    static double fractionalReserve(int level, double gold) {
+        double[] max = {0.15, 0.21, 0.30};
+        return Math.min(max[Math.min(Math.max(level, 1), 3) - 1], Math.floor(gold / 10_000) * 0.01);
+    }
+
     private static int nearbyPlayers(Player player, double range) {
         int count = 0;
         for (Entity entity : player.getNearbyEntities(range, range, range)) {
@@ -619,6 +641,51 @@ public final class EnchantEffects implements DamageModifier, Listener {
         }.runTaskTimer(plugin, 0, 1);
     }
 
+    /** Regularity の強さ s (説明文の 50 / 60 / 75%)。 */
+    private static double s(double share) {
+        return share;
+    }
+
+    /**
+     * 武器の固定分 F (ユーザーの調査 regularity.html): ミスティックの剣 2.5 (5 + 2.5 = 7.5、クリティカルは 5 × 1.5 + 2.5 = 10.0)、
+     * Kung Fu の素手 6.4 (1 + 6.4 = 7.4)、それ以外 0。クリティカルで増えず、Regularity の追撃でもう一度足される。
+     */
+    private double fixedDamage(Player attacker) {
+        ItemStack held = attacker.getItemInHand();
+        if (MysticType.of(held) == MysticType.SWORD && MysticItems.isMystic(held)) {
+            return MYSTIC_SWORD_FIXED;
+        }
+        if ((held == null || held.getType() == Material.AIR)
+                && plugin.getPerkManager().has(attacker, com.pitremake.perk.Perk.KUNG_FU_KNOWLEDGE)) {
+            return KUNG_FU_FIXED;
+        }
+        return 0;
+    }
+
+    /**
+     * ミスティックの剣のクリティカル: バニラは攻撃力 7.5 全体を 1.5 倍 (11.25) にするが、
+     * 実際は固定分 2.5 を除いた 5 だけが 1.5 倍で 10.0 (ユーザーの調査 regularity.html)。ダメージの計算 (HIGH) の前に直す。
+     */
+    @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
+    public void onMysticCrit(org.bukkit.event.entity.EntityDamageByEntityEvent event) {
+        if (!(event.getDamager() instanceof Player) || !(event.getEntity() instanceof Player)
+                || event.getCause() != org.bukkit.event.entity.EntityDamageEvent.DamageCause.ENTITY_ATTACK) {
+            return;
+        }
+        Player attacker = (Player) event.getDamager();
+        if (plugin.getDamageCalculator().isExtraStriking(attacker.getUniqueId()) || !DamageCalculator.isCritical(attacker)) {
+            return;
+        }
+        ItemStack held = attacker.getItemInHand();
+        if (MysticType.of(held) == MysticType.SWORD && MysticItems.isMystic(held)) {
+            event.setDamage(Math.max(0, event.getDamage() - MYSTIC_SWORD_FIXED * 0.5));
+        }
+    }
+
+    private static final double MYSTIC_SWORD_FIXED = 2.5;
+    private static final double KUNG_FU_FIXED = 6.4;
+    private static final double SOMBER_DAMAGE_TAKEN = 0.20;
+
     /** コンボの何回目か (前の一撃から 3.5 秒より空くと 1 から数え直し)。 */
     private static int nextCombo(Map<UUID, Integer> counts, Map<UUID, Long> times, UUID id) {
         long now = System.currentTimeMillis();
@@ -647,11 +714,12 @@ public final class EnchantEffects implements DamageModifier, Listener {
      * 自分も毒で 24 秒エンチャントが止まる (ユーザーの指定)。
      */
     private void venom(Player attacker, Player victim) {
-        // 既に Venom されている相手の時間は延ばさない (ユーザーの指定)
-        if (!MysticAccess.isSuppressed(victim)) {
-            victim.addPotionEffect(new PotionEffect(PotionEffectType.POISON, (int) (VENOM_VICTIM_MILLIS / 50), 0), true);
-            MysticAccess.suppress(victim, VENOM_VICTIM_MILLIS);
+        // 既に Venom されている相手は新しく Venom されない: 相手の時間も延びず、自分も毒にならず、音も鳴らない (ユーザーの指定)
+        if (MysticAccess.isSuppressed(victim)) {
+            return;
         }
+        victim.addPotionEffect(new PotionEffect(PotionEffectType.POISON, (int) (VENOM_VICTIM_MILLIS / 50), 0), true);
+        MysticAccess.suppress(victim, VENOM_VICTIM_MILLIS);
         attacker.addPotionEffect(new PotionEffect(PotionEffectType.POISON, (int) (VENOM_SELF_MILLIS / 50), 0), true);
         MysticAccess.suppress(attacker, VENOM_SELF_MILLIS);
         comboSound(attacker);

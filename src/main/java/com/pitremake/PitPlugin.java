@@ -39,7 +39,9 @@ import com.pitremake.util.ClickMenuListener;
 import com.pitremake.upgrade.MegastreakManager;
 import com.pitremake.upgrade.UpgradeManager;
 import com.pitremake.upgrade.UpgradeMenu;
+import com.pitremake.command.FillMysticCommand;
 import com.pitremake.command.FreshCommand;
+import com.pitremake.command.InstantUpgradeCommand;
 import com.pitremake.command.MysticEnchantCommand;
 import com.pitremake.command.PitCommand;
 import com.pitremake.command.PitGoldCommand;
@@ -96,11 +98,28 @@ public final class PitPlugin extends JavaPlugin {
     private DamageCalculator damageCalculator;
     private EnchantEffects enchantEffects;
     private HologramManager hologramManager;
+    private com.pitremake.leaderboard.Leaderboard leaderboard;
     private PerkManager perkManager;
     private RenownEffects renownEffects;
     private Launcher launcher;
+    private com.pitremake.night.NightCycle nightCycle;
+    private com.pitremake.spire.SpireEvent spireEvent;
+    private com.pitremake.koth.KothEvent kothEvent;
+    private com.pitremake.rewards.DoubleRewardsEvent doubleRewards;
+    private com.pitremake.stash.ItemStash itemStash;
+    private com.pitremake.util.EventBossBar eventBossBar;
+    private com.pitremake.util.PacketTap packetTap;
+    private com.pitremake.auction.AuctionManager auctionManager;
+    private com.pitremake.trade.TradeManager tradeManager;
     private KillListener killListener;
     private PitMapType pitMap = PitMapType.SEASONS;
+
+    /** ワールドを読む前: 地形を元 (plugins/Pit/map-template) に戻す。 */
+    @Override
+    public void onLoad() {
+        saveDefaultConfig();
+        new com.pitremake.map.MapTemplate(this).restoreOnStartup();
+    }
 
     @Override
     public void onEnable() {
@@ -152,6 +171,12 @@ public final class PitPlugin extends JavaPlugin {
                 case RANKS:
                     new RankMenu(this, player).open();
                     break;
+                case STATS:
+                    new com.pitremake.stats.PitStatsMenu(this, player).open();
+                    break;
+                case QUEST_MASTER:
+                    new com.pitremake.quest.QuestMenu(this, player).open();
+                    break;
                 default:
                     break;
             }
@@ -183,8 +208,31 @@ public final class PitPlugin extends JavaPlugin {
         killListener = new KillListener(this);
         launcher = new Launcher(this);
         launcher.start();
+        nightCycle = new com.pitremake.night.NightCycle(this);
+        nightCycle.start();
+        packetTap = new com.pitremake.util.PacketTap(this);
+        packetTap.start();
+        auctionManager = new com.pitremake.auction.AuctionManager(this);
+        auctionManager.start();
+        tradeManager = new com.pitremake.trade.TradeManager(this);
+        tradeManager.start();
         registerCommands();
         registerListeners();
+        // PlayerProfiles (registerListeners で作る) を使うので、その後で出す
+        leaderboard = new com.pitremake.leaderboard.Leaderboard(this);
+        leaderboard.start();
+        // 前回途中で止まった Spire の地形もここで戻す
+        itemStash = new com.pitremake.stash.ItemStash(this);
+        itemStash.start();
+        eventBossBar = new com.pitremake.util.EventBossBar(this);
+        eventBossBar.start();
+        spireEvent = new com.pitremake.spire.SpireEvent(this);
+        damageCalculator.register(spireEvent);
+        spireEvent.start();
+        kothEvent = new com.pitremake.koth.KothEvent(this);
+        kothEvent.start();
+        doubleRewards = new com.pitremake.rewards.DoubleRewardsEvent(this);
+        doubleRewards.start();
         sidebar = new PitSidebar(this);
         sidebar.start();
 
@@ -193,6 +241,19 @@ public final class PitPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        // 塔を壊して地形を戻し、預かった持ち物を返す (ほかより先に)
+        if (spireEvent != null) {
+            spireEvent.stop();
+        }
+        if (kothEvent != null) {
+            kothEvent.stop();
+        }
+        if (doubleRewards != null) {
+            doubleRewards.stop();
+        }
+        if (eventBossBar != null) {
+            eventBossBar.stop();
+        }
         if (sidebar != null) {
             sidebar.stop();
         }
@@ -204,6 +265,9 @@ public final class PitPlugin extends JavaPlugin {
         }
         if (hologramManager != null) {
             hologramManager.stop();
+        }
+        if (leaderboard != null) {
+            leaderboard.stop();
         }
         if (shopItemListener != null) {
             shopItemListener.stop();
@@ -219,6 +283,18 @@ public final class PitPlugin extends JavaPlugin {
         }
         if (launcher != null) {
             launcher.stop();
+        }
+        if (nightCycle != null) {
+            nightCycle.stop();
+        }
+        if (auctionManager != null) {
+            auctionManager.stop();
+        }
+        if (tradeManager != null) {
+            tradeManager.stop();
+        }
+        if (packetTap != null) {
+            packetTap.stop();
         }
         if (megastreakManager != null) {
             megastreakManager.stop();
@@ -266,6 +342,42 @@ public final class PitPlugin extends JavaPlugin {
         MysticEnchantCommand mysticEnchantExecutor = new MysticEnchantCommand(this);
         mysticEnchant.setExecutor(mysticEnchantExecutor);
         mysticEnchant.setTabCompleter(mysticEnchantExecutor);
+
+        getCommand("fillmystic").setExecutor(new FillMysticCommand());
+        getCommand("trade").setExecutor((sender, command, label, args) -> {
+            if (!(sender instanceof org.bukkit.entity.Player)) {
+                return true;
+            }
+            if (args.length != 1) {
+                sender.sendMessage("§cUsage: /" + label + " <player>");
+                return true;
+            }
+            tradeManager.request((org.bukkit.entity.Player) sender, getServer().getPlayerExact(args[0]));
+            return true;
+        });
+        getCommand("eventbook").setExecutor((sender, command, label, args) -> {
+            if (sender instanceof org.bukkit.entity.Player) {
+                spireEvent.openBook((org.bukkit.entity.Player) sender);
+            }
+            return true;
+        });
+        getCommand("tradeaccept").setExecutor((sender, command, label, args) -> {
+            if (sender instanceof org.bukkit.entity.Player && args.length == 1) {
+                tradeManager.accept((org.bukkit.entity.Player) sender, args[0]);
+            }
+            return true;
+        });
+        getCommand("auctionmenu").setExecutor((sender, command, label, args) -> {
+            if (sender instanceof org.bukkit.entity.Player) {
+                auctionManager.open((org.bukkit.entity.Player) sender);
+            }
+            return true;
+        });
+
+        PluginCommand instantUpgrade = getCommand("instantupgrade");
+        InstantUpgradeCommand instantUpgradeExecutor = new InstantUpgradeCommand(this);
+        instantUpgrade.setExecutor(instantUpgradeExecutor);
+        instantUpgrade.setTabCompleter(instantUpgradeExecutor);
 
         PluginCommand pitBot = getCommand("pitbot");
         BotCommand pitBotExecutor = new BotCommand(botManager, pitSpawn::randomPoint);
@@ -332,6 +444,7 @@ public final class PitPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(pitSpawn, this);
         getServer().getPluginManager().registerEvents(new WorldListener(this), this);
         getServer().getPluginManager().registerEvents(new ClickMenuListener(), this);
+        getServer().getPluginManager().registerEvents(new com.pitremake.stats.StatsTracker(this), this);
         getServer().getPluginManager().registerEvents(shopItemListener, this);
         getServer().getPluginManager().registerEvents(new PitChatListener(this), this);
         getServer().getPluginManager().registerEvents(damageCalculator, this);
@@ -477,6 +590,53 @@ public final class PitPlugin extends JavaPlugin {
 
     public Launcher getLauncher() {
         return launcher;
+    }
+
+    public com.pitremake.night.NightCycle getNightCycle() {
+        return nightCycle;
+    }
+
+    public com.pitremake.spire.SpireEvent getSpireEvent() {
+        return spireEvent;
+    }
+
+    public com.pitremake.stash.ItemStash getItemStash() {
+        return itemStash;
+    }
+
+    public com.pitremake.rewards.DoubleRewardsEvent getDoubleRewards() {
+        return doubleRewards;
+    }
+
+    public com.pitremake.koth.KothEvent getKothEvent() {
+        return kothEvent;
+    }
+
+    public com.pitremake.util.EventBossBar getEventBossBar() {
+        return eventBossBar;
+    }
+
+    /**
+     * Auction / Spire / KOTH / 2X Rewards のどれかが (予告中も含めて) 開催中か。イベントは同時には始まらない。
+     * 自動で始まる時間に別のイベントがあれば、終わってから始まる (1 分ごとに見直す)。
+     */
+    public boolean isEventActive() {
+        return (auctionManager != null && auctionManager.isRunning())
+                || (spireEvent != null && spireEvent.isActive())
+                || (kothEvent != null && kothEvent.isRunning())
+                || (doubleRewards != null && doubleRewards.isRunning());
+    }
+
+    public com.pitremake.util.PacketTap getPacketTap() {
+        return packetTap;
+    }
+
+    public com.pitremake.auction.AuctionManager getAuctionManager() {
+        return auctionManager;
+    }
+
+    public com.pitremake.trade.TradeManager getTradeManager() {
+        return tradeManager;
     }
 
     public KillListener getKillListener() {

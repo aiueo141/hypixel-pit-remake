@@ -433,6 +433,7 @@ public final class UpgradeMenu implements ClickMenu {
                 return;
             }
             upgrades.setPerk(id, perkSlot, perk);
+            plugin.getPerkManager().onPerkSelected(player, perk);
             perksChanged();
             return;
         }
@@ -540,6 +541,7 @@ public final class UpgradeMenu implements ClickMenu {
         if (pendingPerk != null) {
             upgrades.buyPerk(id(), pendingPerk);
             upgrades.setPerk(id(), perkSlot, pendingPerk);
+            plugin.getPerkManager().onPerkSelected(player, pendingPerk);
             plugin.getMegastreakManager().refresh(player);
             next = Page.MAIN;
         } else if (pendingPassive != null) {

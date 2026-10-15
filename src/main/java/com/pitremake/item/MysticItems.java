@@ -208,6 +208,19 @@ public final class MysticItems {
         );
     }
 
+    /**
+     * Nonce だけを振り直したコピーを返す。パンツの色 (Nonce % 5) は保つ。
+     * Rage / Dark Pants は Nonce が固定なのでそのままコピーする。
+     */
+    public static ItemStack withNewNonce(ItemStack item) {
+        MysticData data = MysticData.read(item);
+        if (data.isRagePants() || data.isDarkPants()) {
+            return item.clone();
+        }
+        int nonce = randomNonce();
+        return NbtUtil.setInt(item.clone(), NONCE, nonce - Math.floorMod(nonce, 5) + Math.floorMod(data.getNonce(), 5));
+    }
+
     private static ItemStack withNonce(ItemStack item) {
         return NbtUtil.setInt(item, NONCE, randomNonce());
     }

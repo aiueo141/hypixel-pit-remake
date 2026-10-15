@@ -60,10 +60,11 @@ final class WellRules {
      *   新規追加の重み = NEW_ENCHANT_WEIGHT × NEW_ENCHANT_DECAY ^ (今のエンチャント数)
      *   既存強化の重み = UPGRADE_WEIGHT (強化できるエンチャントがあるときのみ)
      * の比で抽選する。エンチャントが増えるほど追加が出にくくなる (種類数の上限は TierEnchantRules)。
-     *   1 個: 追加 58% / 2 個: 33% (強化候補がある場合)
+     *   1 個: 追加 48% / 2 個: 25% (強化候補がある場合)
      * NEW_ENCHANT_DECAY を上げると最終的なエンチャント数が増え、下げると減る。
+     * UPGRADE_WEIGHT は 1.0 → 1.5 (レベルが上がらなすぎたので、今あるエンチャントを上げやすくした)。
      */
-    static final double UPGRADE_WEIGHT = 1.0;
+    static final double UPGRADE_WEIGHT = 1.5;
     static final double NEW_ENCHANT_WEIGHT = 4.0;
     static final double NEW_ENCHANT_DECAY = 0.35;
 
@@ -79,13 +80,12 @@ final class WellRules {
      * index = 強化後の Tier。強化の最初に決めるレベル数の重み。要素 i がレベル数 (i + 1) の重み。
      * このレベル数を「新規追加」と「既存強化」に 1 ずつ使っていく。
      *   Tier I  : 1 = 80%, 2 = 20%
-     *   Tier II : 1 = 75%, 2 = 25%
-     *   Tier III: 1 = 53%, 2 = 27%, 3 = 13%, 4 = 7%
-     * (前は I 75/25・II 50/50・III 各 25% で、高い値が出すぎていた)
+     *   Tier II : 1 = 67%, 2 = 33%
+     *   Tier III: 1 = 31%, 2 = 31%, 3 = 23%, 4 = 15%
+     * (前は I 75/25・II 50/50・III 各 25% で高い値が出すぎ、その後の II 75/25・III 8/4/2/1 では上がらなすぎた。
+     *  今の値で Fresh → T3 の平均レベル合計 4.8、Lv III がある 66%、Legendary (合計 8) 約 1/100 (シミュレーション 100 万本))
      */
-    private static final int[][] BUDGET_WEIGHTS = {{}, {4, 1}, {3, 1}, {8, 4, 2, 1}};
-    /** RARE を新しく付けるとき、レベル数を余分に消費する量 (Lv I の RARE を付けると 1 + これ)。 */
-    static final int RARE_EXTRA_COST = 1;
+    private static final int[][] BUDGET_WEIGHTS = {{}, {4, 1}, {2, 1}, {4, 4, 3, 2}};
 
     /** index = 強化後の Tier。 */
     private static final int[] COST = {0, 1_000, 4_000, 8_000};
@@ -210,9 +210,10 @@ final class WellRules {
     static int rarityWeight(EnchantRarity rarity) {
         switch (rarity) {
             case COMMON:
-                return 60;
+                return 40;
             case UNCOMMON:
-                return 30;
+                // レアが出すぎたので UNCOMMON を上げて RARE を下げた (40 / 40 / 20 → 40 / 50 / 10)
+                return 50;
             default:
                 return 10;
         }

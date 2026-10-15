@@ -1,5 +1,6 @@
 package com.pitremake.special;
 
+import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -8,6 +9,7 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.inventory.ItemStack;
@@ -45,6 +47,31 @@ public final class SpecialItemListener implements Listener {
         // サボテンを設置しないようにキャンセルする
         event.setCancelled(true);
         new CactusMenu(event.getPlayer()).open();
+    }
+
+    /** Mystic Repair Kit を持って右クリック → 直すミスティックを選ぶ画面。 */
+    @EventHandler(priority = EventPriority.LOW)
+    public void onRepairKit(PlayerInteractEvent event) {
+        if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) {
+            return;
+        }
+        if (!SpecialItems.isRepairKit(event.getItem())) {
+            return;
+        }
+        event.setCancelled(true);
+        if (!new RepairKitMenu((com.pitremake.PitPlugin) plugin, event.getPlayer()).open()) {
+            event.getPlayer().sendMessage("§cYou don't have any mystic items to repair!");
+        }
+    }
+
+    /** Funky Feather と Mystic Repair Kit は捨てられない (Q キーでも、画面の外へ出しても)。 */
+    @EventHandler(ignoreCancelled = true)
+    public void onDrop(PlayerDropItemEvent event) {
+        ItemStack item = event.getItemDrop().getItemStack();
+        if (event.getPlayer().getGameMode() != GameMode.CREATIVE
+                && (SpecialItems.isFeather(item) || SpecialItems.isRepairKit(item))) {
+            event.setCancelled(true);
+        }
     }
 
     /** Uberdrop を持ってクリック (右でも左でも) → 開ける。 */

@@ -28,10 +28,13 @@ import java.util.function.DoubleConsumer;
 /**
  * プレイヤーが受けるダメージをまとめて計算する。
  * <pre>
- * 1. バニラの攻撃力 (クリティカル 1.5 倍込み) と防具 (ミスティックパンツは鉄相当など {@code ArmorListener})
- * 2. 増加の合計と減少の合計を集めて 倍率 = max(0, 1 + 増加 - 減少) を掛ける
- * 3. 1 回の上限 (Singularity)、確定ダメージ (Mirror / Hermit で無効)
+ * 1. バニラの攻撃力 x0 (クリティカル 1.5 倍込み)
+ * 2. x1 = x0 × E × L。E = max(0, 1 + 増加 - 減少) (Passive・パーク・Renown の +X% と Mystic の増減)、
+ *    L = アカウントの補正・Gladiator・Marathon・Tough Skin・メガストリークなどの掛け算
+ * 3. 剣でガード中は (1 + x1) / 2 → 防具 (Pit のパンツは Dark も含めて鉄相当 {@code ArmorListener}) → 耐性
+ * 4. 1 回の上限 (Singularity)、確定ダメージ (Mirror / Hermit で無効)
  * </pre>
+ * 式は逆算レポート「Hypixel Pit ダメージ計算ロジック」(-1 版、録画 2 本・近接 17,724 件) のもの。
  * 録画 (2026-10-14_09-32-22.mcrc など) の受けたダメージは、鉄の剣 7・ダイヤの剣 8 に防具 1 ポイント 4% 減で、
  * そこに少しの倍率 (Passive など) が掛かった値だった。
  */
@@ -55,6 +58,11 @@ public final class DamageCalculator implements Listener {
         this.interceptor = interceptor;
     }
 
+    /** その人が今 Regularity の追撃を当てているところか。 */
+    public boolean isExtraStriking(UUID attacker) {
+        return extraStrikes.contains(attacker);
+    }
+
     public void register(DamageModifier modifier) {
         modifiers.add(modifier);
     }
@@ -65,9 +73,8 @@ public final class DamageCalculator implements Listener {
      * (戻さないと追撃で無敵時間が 20 tick に延び、次の普通の一撃が無敵時間に当たって通らない)。
      */
     /**
-     * multiplier / flat: 追撃に使う倍率と足す攻撃力 (最初の一撃の倍率 × 1.75 と、最初の一撃の足した攻撃力)。
-     * 録画 (Attacker.mcrc の Raw Numbers): 相手が違っても追撃は最初の一撃のちょうど 1.75 倍
-     * (0.073 → 0.129、0.110 → 0.193、0.180 → 0.315) なので、加算の増減に 0.75 を足すのではなく最後に 1.75 倍。
+     * multiplier / flat: 追撃に使う倍率と、攻撃力に足す量 (EnchantEffects の Regularity が計算する)。
+     * 追撃 = s × (x0 × E + F) × E × 防具 (ユーザーの調査 regularity.html: 録画 536 組)。
      */
     public void extraStrike(Player attacker, Player victim, double damage, double multiplier, double flat) {
         extraStrikeMultiplier.put(attacker.getUniqueId(), new double[]{multiplier, flat});
@@ -190,7 +197,11 @@ public final class DamageCalculator implements Listener {
         if (multiplier != 1 || context.flat() != 0) {
             double base = event.getDamage();
             double target = Math.max(0, base + context.flat()) * multiplier;
-            scale(event, context.victim, base > 0 ? target / base : 0);
+            if (base > 0 && context.victim.isBlocking() && event.isApplicable(EntityDamageEvent.DamageModifier.BLOCKING)) {
+                guard(event, context.victim, base, target);
+            } else {
+                scale(event, context.victim, base > 0 ? target / base : 0);
+            }
             if (base <= 0) {
                 event.setDamage(EntityDamageEvent.DamageModifier.BASE, target);
             }
@@ -213,8 +224,8 @@ public final class DamageCalculator implements Listener {
             context.blockedTrueDamage = context.trueDamage;
         }
         double trueDamage = (context.trueDamageImmune ? 0 : context.trueDamage) + context.penaltyTrueDamage;
-        if (interceptor != null && context.byPlayer()
-                && interceptor.intercept(context, context.victim.getHealth() - finalDamage - trueDamage)) {
+        // 落下など自分で減らした体力でも Escape Pod / Phoenix は発動するので、プレイヤー以外のダメージでも呼ぶ
+        if (interceptor != null && interceptor.intercept(context, context.victim.getHealth() - finalDamage - trueDamage)) {
             event.setCancelled(true);
             return;
         }
@@ -231,10 +242,10 @@ public final class DamageCalculator implements Listener {
         if (context.attacker != null && (debugging.contains(context.victim.getUniqueId())
                 || debugging.contains(context.attacker.getUniqueId()))) {
             debug(context.attacker, context.victim, String.format(java.util.Locale.US,
-                    "%s%s→%s base %.3f ×%.3f (%s: +%.2f / -%.2f) = %.3f → final %.3f%s",
+                    "%s%s→%s base %.3f ×%.3f (%s: +%.2f / -%.2f, L ×%.2f) = %.3f → final %.3f%s",
                     context.isExtraStrike() ? "§d[Regularity] §7" : "", context.attacker.getName(), context.victim.getName(),
                     rawBefore, multiplier, DamageContext.getStacking().name().toLowerCase(), context.increaseSum,
-                    context.reductionSum, event.getDamage(), finalDamage,
+                    context.reductionSum, context.outerMultiplier(), event.getDamage(), finalDamage,
                     (context.dealtTrueDamage > 0 ? String.format(java.util.Locale.US, " +true %.2f", context.dealtTrueDamage) : "")
                             + (context.blockedTrueDamage > 0 ? String.format(java.util.Locale.US, " (blocked true %.2f)", context.blockedTrueDamage) : "")));
         }
@@ -261,6 +272,44 @@ public final class DamageCalculator implements Listener {
             event.setDamage(modifier, value);
             beforeAbsorption += value;
         }
+        fitAbsorption(event, victim, beforeAbsorption);
+    }
+
+    /**
+     * 剣でガード中の倍率: ガード (1 + x) / 2 は Pit の倍率を掛けた後の攻撃力 x に掛かる
+     * (逆算レポート-1: C4talak → LaKbraa は (1 + 7 × 0.9381) / 2 × 0.56 = 2.119)。
+     * 全部を同じ割合で縮める {@link #scale} だと (1 + x0) / 2 × 倍率 になってしまうので、ガードを付け直して
+     * 防具・耐性はガードの後の値に比例させる。
+     */
+    private static void guard(EntityDamageEvent event, Player victim, double base, double target) {
+        EntityDamageEvent.DamageModifier hardHat = EntityDamageEvent.DamageModifier.HARD_HAT;
+        EntityDamageEvent.DamageModifier blocking = EntityDamageEvent.DamageModifier.BLOCKING;
+        double oldHardHat = event.isApplicable(hardHat) ? event.getDamage(hardHat) : 0;
+        double before = base + oldHardHat + event.getDamage(blocking);
+        double newHardHat = oldHardHat * target / base;
+        double incoming = target + newHardHat;
+        double guarded = incoming > 0 ? (1 + incoming) * 0.5 : incoming;
+        event.setDamage(EntityDamageEvent.DamageModifier.BASE, target);
+        if (event.isApplicable(hardHat)) {
+            event.setDamage(hardHat, newHardHat);
+        }
+        event.setDamage(blocking, guarded - incoming);
+        double ratio = before > 0 ? guarded / before : 0;
+        double beforeAbsorption = guarded;
+        for (EntityDamageEvent.DamageModifier modifier : new EntityDamageEvent.DamageModifier[]{
+                EntityDamageEvent.DamageModifier.ARMOR, EntityDamageEvent.DamageModifier.RESISTANCE,
+                EntityDamageEvent.DamageModifier.MAGIC}) {
+            if (event.isApplicable(modifier)) {
+                double value = event.getDamage(modifier) * ratio;
+                event.setDamage(modifier, value);
+                beforeAbsorption += value;
+            }
+        }
+        fitAbsorption(event, victim, beforeAbsorption);
+    }
+
+    /** 衝撃吸収は持っている量で付け直す。 */
+    private static void fitAbsorption(EntityDamageEvent event, Player victim, double beforeAbsorption) {
         if (event.isApplicable(EntityDamageEvent.DamageModifier.ABSORPTION)) {
             double absorption = ((CraftPlayer) victim).getHandle().getAbsorptionHearts();
             event.setDamage(EntityDamageEvent.DamageModifier.ABSORPTION, -Math.min(absorption, Math.max(0, beforeAbsorption)));

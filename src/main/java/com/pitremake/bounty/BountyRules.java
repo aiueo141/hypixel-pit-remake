@@ -8,8 +8,8 @@ import java.util.Random;
  * pit.wiki (Bounty) より:
  *   ストリーク 6 以上のキルで、ランダムにバウンティが付く / 上がる (bump)
  *   ストリークが高いほど額が大きく、続けてキルするほど上がりやすい
- *   50g 単位、1 回の上昇は最大 300g、上限 5,000g
- *   バウンティ 1,000g ごとに戦闘中の時間 +5 秒
+ *   50g 単位、1 回の上昇は最大 300g、上限 5,000g (Highlander 発動中は 10,000g)。それより高い額はコマンドでしか付かない
+ *   バウンティ 1,000g ごとに戦闘中の時間 +5 秒 (普通の 10 秒と合わせて最大 30 秒)
  * wiki に数値が無いので推測 (実験的):
  *   確率   5% + ストリーク 1 につき 0.5% (最大 25%)、前のキルから 10 秒以内なら 1.5 倍 (最大 35%)
  *          (前は 15% + 1% で上がりやすすぎたので下げた。ストリーク 10 で 7% / 素早いキルなら 10.5%)
@@ -34,6 +34,8 @@ public final class BountyRules {
             {6, 50, 100}, {10, 100, 150}, {20, 150, 200}, {50, 200, 250}, {100, 250, 300}};
     /** バウンティ 1,000g ごとに延びる戦闘中の時間。 */
     static final long COMBAT_MILLIS_PER_1000 = 5_000;
+    /** 延びる時間の上限: 普通の 10 秒と合わせて最大 30 秒 (ユーザーの指定)。 */
+    static final long MAX_COMBAT_EXTENSION_MILLIS = 20_000;
 
     private BountyRules() {
     }
@@ -72,7 +74,8 @@ public final class BountyRules {
         return Math.max(0, Math.min(bump, maxBounty - current));
     }
 
+    /** バウンティで延びる戦闘中の時間 (1,000g ごとに +5 秒、普通の 10 秒と合わせて最大 30 秒)。 */
     public static long combatExtensionMillis(int bounty) {
-        return bounty / 1000 * COMBAT_MILLIS_PER_1000;
+        return Math.min(MAX_COMBAT_EXTENSION_MILLIS, bounty / 1000 * COMBAT_MILLIS_PER_1000);
     }
 }

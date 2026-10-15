@@ -119,7 +119,8 @@ public final class BowEffects implements Listener {
         }
         Player shooter = (Player) event.getEntity();
         Arrow arrow = (Arrow) event.getProjectile();
-        if (MysticAccess.isSuppressed(shooter)) {
+        // Somber を履いていると Mystic の弓のエンチャント (Mega Longbow / Volley / Telebow …) は効かない
+        if (MysticAccess.isSuppressed(shooter) || MysticAccess.mysticItemsBlocked(shooter)) {
             return;
         }
         Map<String, Integer> enchants = bowEnchants(event.getBow());
@@ -209,6 +210,13 @@ public final class BowEffects implements Listener {
         if (event.getEntity() instanceof Arrow && event.getEntity().getShooter() instanceof Player) {
             Arrow landed = (Arrow) event.getEntity();
             Player owner = (Player) landed.getShooter();
+            if (plugin.getPitSpawn().isProtected(landed.getLocation())) {
+                // スポーンの中に撃っても Explosive / Devil Chicks / Telebow は何も起きない
+                if (landed.hasMetadata(TELEBOW_METADATA)) {
+                    landed.remove();
+                }
+                return;
+            }
             Map<String, Integer> landedEnchants = plugin.getEnchantEffects().arrowEnchants(landed);
             Integer explosive = landedEnchants.get("explosive_bow");
             if (explosive != null) {
@@ -324,7 +332,7 @@ public final class BowEffects implements Listener {
         ItemStack held = victim.getItemInHand();
         Player arrowOwner = arrow.getShooter() instanceof Player ? (Player) arrow.getShooter() : null;
         if (isBlocking(victim) && MysticType.of(held) == MysticType.SWORD && MysticItems.isMystic(held)
-                && !MysticAccess.disabled(victim, arrowOwner)) {
+                && !MysticAccess.disabled(victim, arrowOwner) && !MysticAccess.mysticItemsBlocked(victim)) {
             Integer bulletTime = MysticData.read(held).getEnchants().get("blocking_cancels_projectiles");
             if (bulletTime != null) {
                 event.setCancelled(true);

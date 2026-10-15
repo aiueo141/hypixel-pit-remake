@@ -140,6 +140,10 @@ public final class PitSidebar implements Listener {
         UUID id = player.getUniqueId();
         int bounty = plugin.getBountyManager().get(id);
         String status = plugin.getMegastreakManager().statusName(player);
+        if (status == null && plugin.getSpireEvent() != null && plugin.getSpireEvent().isRunning()
+                && stats.combatSecondsLeft(id, BountyRules.combatExtensionMillis(bounty)) <= 0) {
+            status = "§6Event";
+        }
         if (status == null) {
             // 戦闘中は残りの秒数も (Strength と同じ形: Fighting (10))
             int left = stats.combatSecondsLeft(id, BountyRules.combatExtensionMillis(bounty));
@@ -157,6 +161,20 @@ public final class PitSidebar implements Listener {
                 plugin.getPerkManager().strengthLevel(player),
                 plugin.getPerkManager().strengthSeconds(player),
                 color(plugin.getConfig().getString("scoreboard.footer", "&ewww.hypixel.net")));
+        // Spire の開催中はフッターの前の空行の後ろに Event / Remaining / Floor / Souls (録画)
+        if (plugin.getSpireEvent() != null) {
+            List<String> spire = plugin.getSpireEvent().sidebarLines(player);
+            if (!spire.isEmpty()) {
+                lines.addAll(lines.size() - 1, spire);
+                lines.add(lines.size() - 1, "");
+                // 15 行に収まらなければ途中の空行から詰める (フッターは残す)
+                for (int i = 2; lines.size() > MAX_LINES && i < lines.size() - 2; i++) {
+                    if (lines.get(i).isEmpty()) {
+                        lines.remove(i--);
+                    }
+                }
+            }
+        }
         render(board, lines);
     }
 

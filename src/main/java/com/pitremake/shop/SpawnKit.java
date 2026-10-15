@@ -20,7 +20,8 @@ import java.util.concurrent.ThreadLocalRandom;
  * 矢   : 32 本
  * </pre>
  * どれも Unbreakable (表示する) で、名前・説明は無い (Kept on death ではないので死ぬと無くなり、スポーンでまたもらう)。
- * 持っているものはもらわない (足りない分だけ)。
+ * 持っているものはもらわない (足りない分だけ)。防具は空いている場所だけ (Autobuy の防具やミスティックを着ていれば無し)。
+ * 剣・弓は Spawn Items が OFF ならもらえない。Autobuy でダイヤの剣を買っていれば鉄の剣は無し。
  */
 public final class SpawnKit {
 
@@ -48,7 +49,10 @@ public final class SpawnKit {
             inventory.setBoots(unbreakable(iron.get(2) ? Material.IRON_BOOTS : Material.CHAINMAIL_BOOTS));
         }
         if (weapons) {
-            giveIfMissing(inventory, Material.IRON_SWORD);
+            // Autobuy でダイヤの剣を買っていれば鉄の剣は渡さない (置き換え)
+            if (!inventory.contains(Material.DIAMOND_SWORD)) {
+                giveIfMissing(inventory, Material.IRON_SWORD);
+            }
             giveIfMissing(inventory, Material.BOW);
         }
         int arrows = 0;
