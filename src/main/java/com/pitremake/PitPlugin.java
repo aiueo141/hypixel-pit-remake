@@ -110,6 +110,8 @@ public final class PitPlugin extends JavaPlugin {
     private com.pitremake.util.EventBossBar eventBossBar;
     private com.pitremake.util.PacketTap packetTap;
     private com.pitremake.auction.AuctionManager auctionManager;
+    private com.pitremake.event.EventSchedule eventSchedule;
+    private com.pitremake.permission.PitPermissions permissions;
     private com.pitremake.trade.TradeManager tradeManager;
     private KillListener killListener;
     private PitMapType pitMap = PitMapType.SEASONS;
@@ -212,10 +214,13 @@ public final class PitPlugin extends JavaPlugin {
         nightCycle.start();
         packetTap = new com.pitremake.util.PacketTap(this);
         packetTap.start();
+        eventSchedule = new com.pitremake.event.EventSchedule(this);
         auctionManager = new com.pitremake.auction.AuctionManager(this);
         auctionManager.start();
         tradeManager = new com.pitremake.trade.TradeManager(this);
         tradeManager.start();
+        permissions = new com.pitremake.permission.PitPermissions(this);
+        permissions.start();
         registerCommands();
         registerListeners();
         // PlayerProfiles (registerListeners で作る) を使うので、その後で出す
@@ -233,6 +238,11 @@ public final class PitPlugin extends JavaPlugin {
         kothEvent.start();
         doubleRewards = new com.pitremake.rewards.DoubleRewardsEvent(this);
         doubleRewards.start();
+        eventSchedule.add(spireEvent);
+        eventSchedule.add(kothEvent);
+        eventSchedule.add(doubleRewards);
+        eventSchedule.add(auctionManager);
+        warnOverlaps(null);
         sidebar = new PitSidebar(this);
         sidebar.start();
 
@@ -286,6 +296,9 @@ public final class PitPlugin extends JavaPlugin {
         }
         if (nightCycle != null) {
             nightCycle.stop();
+        }
+        if (permissions != null) {
+            permissions.stop();
         }
         if (auctionManager != null) {
             auctionManager.stop();
@@ -367,6 +380,10 @@ public final class PitPlugin extends JavaPlugin {
             }
             return true;
         });
+        PluginCommand events = getCommand("events");
+        com.pitremake.command.EventsCommand eventsExecutor = new com.pitremake.command.EventsCommand(this);
+        events.setExecutor(eventsExecutor);
+        events.setTabCompleter(eventsExecutor);
         getCommand("auctionmenu").setExecutor((sender, command, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player) {
                 auctionManager.open((org.bukkit.entity.Player) sender);
@@ -427,6 +444,11 @@ public final class PitPlugin extends JavaPlugin {
         PitRenownCommand pitRenownExecutor = new PitRenownCommand(this);
         pitRenown.setExecutor(pitRenownExecutor);
         pitRenown.setTabCompleter(pitRenownExecutor);
+
+        PluginCommand pitPermission = getCommand("pitpermission");
+        com.pitremake.command.PitPermissionCommand pitPermissionExecutor = new com.pitremake.command.PitPermissionCommand(permissions);
+        pitPermission.setExecutor(pitPermissionExecutor);
+        pitPermission.setTabCompleter(pitPermissionExecutor);
 
         PluginCommand pitBounty = getCommand("pitbounty");
         PitBountyCommand pitBountyExecutor = new PitBountyCommand(this);
@@ -606,6 +628,29 @@ public final class PitPlugin extends JavaPlugin {
 
     public com.pitremake.rewards.DoubleRewardsEvent getDoubleRewards() {
         return doubleRewards;
+    }
+
+    public com.pitremake.event.EventSchedule getEventSchedule() {
+        return eventSchedule;
+    }
+
+    /** /pit reload: 自動イベントの次の時刻を新しい config で決め直す。 */
+    public void rescheduleEvents(org.bukkit.command.CommandSender sender) {
+        for (com.pitremake.event.PitEvent event : eventSchedule.getEvents()) {
+            event.scheduleNext();
+        }
+        warnOverlaps(sender);
+    }
+
+    /** 自動イベントの時間が重なる設定ならログ (と sender) に出す。 */
+    public void warnOverlaps(org.bukkit.command.CommandSender sender) {
+        java.util.List<String> overlaps = eventSchedule.overlaps(System.currentTimeMillis());
+        for (String line : overlaps) {
+            getLogger().warning("Events overlap: " + line + " (change offset-minutes in config.yml)");
+            if (sender != null) {
+                sender.sendMessage("§cEvents overlap: " + line);
+            }
+        }
     }
 
     public com.pitremake.koth.KothEvent getKothEvent() {

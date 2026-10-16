@@ -30,7 +30,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * バウンティのゴールドは ×4 にならない (pit.wiki)。サイドバーの行は録画に無い。
  * 録画に出てきた丘は Summer Area だけなので、ほかの場所は resources/koth に足せば選ばれる。
  */
-public final class KothEvent {
+public final class KothEvent implements com.pitremake.event.PitEvent {
 
     public static final int DURATION_MINUTES = 4;
     public static final double MULTIPLIER = 4;
@@ -96,8 +96,40 @@ public final class KothEvent {
         return plugin.getServer().getWorlds().get(0);
     }
 
-    private void scheduleNext() {
-        nextEvent = System.currentTimeMillis() + (long) (plugin.getConfig().getDouble("koth.interval-minutes", 20) * 60_000);
+    /** 次の KOTH を時計に合わせて決める (config の koth.interval-minutes / offset-minutes)。 */
+    @Override
+    public void scheduleNext() {
+        nextEvent = plugin.getEventSchedule().next("koth", 30, System.currentTimeMillis());
+    }
+
+    @Override
+    public String configKey() {
+        return "koth";
+    }
+
+    @Override
+    public String displayName() {
+        return "§b§lKOTH";
+    }
+
+    @Override
+    public boolean isScheduled() {
+        return available && plugin.getConfig().getBoolean("koth.enabled", false);
+    }
+
+    @Override
+    public int lengthMinutes() {
+        return DURATION_MINUTES;
+    }
+
+    @Override
+    public long nextStart() {
+        return nextEvent;
+    }
+
+    @Override
+    public long endsAt() {
+        return area == null ? 0 : endTime;
     }
 
     public boolean isRunning() {

@@ -18,11 +18,12 @@ import java.util.function.Supplier;
 /**
  * /pitbot spawn [count] [player|spawn] : player = 自分の場所 (プレイヤーの初期値)、spawn = Pit の復活地点からランダム (コンソールの初期値)
  * /pitbot remove | count | list
+ * /pitbot auto [on|off] : 自動で湧く Bot のオン/オフ (config の bots.auto に保存)
  */
 public final class BotCommand implements CommandExecutor, TabCompleter {
 
     private static final int MAX_SPAWN = 100;
-    private static final List<String> SUBCOMMANDS = Arrays.asList("spawn", "remove", "count", "list");
+    private static final List<String> SUBCOMMANDS = Arrays.asList("spawn", "remove", "auto", "count", "list");
 
     private final BotManager bots;
     /** Pit の復活地点 (呼ぶたびにランダム)。 */
@@ -72,6 +73,17 @@ public final class BotCommand implements CommandExecutor, TabCompleter {
             case "remove":
                 sender.sendMessage(ChatColor.GREEN + "Removed " + bots.removeAll() + " bot(s).");
                 return true;
+            case "auto":
+                if (args.length >= 2) {
+                    String value = args[1].toLowerCase();
+                    if (!value.equals("on") && !value.equals("off")) {
+                        sender.sendMessage(ChatColor.RED + "Invalid argument: " + args[1]);
+                        return true;
+                    }
+                    bots.setAuto(value.equals("on"));
+                }
+                sender.sendMessage(ChatColor.GRAY + "Auto bots: " + (bots.isAuto() ? ChatColor.GREEN + "ON" : ChatColor.RED + "OFF"));
+                return true;
             case "count":
                 sender.sendMessage(ChatColor.GRAY + "Bots: " + ChatColor.WHITE + bots.count());
                 return true;
@@ -84,6 +96,7 @@ public final class BotCommand implements CommandExecutor, TabCompleter {
             default:
                 sender.sendMessage(ChatColor.YELLOW + "/" + label + " spawn [count] [player|spawn]");
                 sender.sendMessage(ChatColor.YELLOW + "/" + label + " remove");
+                sender.sendMessage(ChatColor.YELLOW + "/" + label + " auto [on|off]");
                 sender.sendMessage(ChatColor.YELLOW + "/" + label + " count");
                 sender.sendMessage(ChatColor.YELLOW + "/" + label + " list");
                 return true;
@@ -97,6 +110,8 @@ public final class BotCommand implements CommandExecutor, TabCompleter {
             options = SUBCOMMANDS;
         } else if (args[0].equalsIgnoreCase("spawn") && args.length <= 3) {
             options = Arrays.asList("player", "spawn", "10");
+        } else if (args[0].equalsIgnoreCase("auto") && args.length == 2) {
+            options = Arrays.asList("on", "off");
         } else {
             return Collections.emptyList();
         }

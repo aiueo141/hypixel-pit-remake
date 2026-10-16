@@ -29,7 +29,7 @@ import java.util.List;
  * 今は区域は Mid だけ (ユーザーの指定): スポーンの下の真ん中 (半径 config の double-rewards.mid-radius) で、
  * 文字と光は Mid の床の真ん中の上。始まり・1 分ごと・終わりのチャットは録画に無いので KOTH と同じ形。
  */
-public final class DoubleRewardsEvent {
+public final class DoubleRewardsEvent implements com.pitremake.event.PitEvent {
 
     public static final int DURATION_MINUTES = 4;
     /** 自動で始まるときの倍率 (config の double-rewards.multiplier)。録画は 2。 */
@@ -77,8 +77,41 @@ public final class DoubleRewardsEvent {
         return plugin.getServer().getWorlds().get(0);
     }
 
-    private void scheduleNext() {
-        nextEvent = System.currentTimeMillis() + (long) (plugin.getConfig().getDouble("double-rewards.interval-minutes", 20) * 60_000);
+    /** 次の 2X REWARDS を時計に合わせて決める (config の double-rewards.interval-minutes / offset-minutes)。 */
+    @Override
+    public void scheduleNext() {
+        nextEvent = plugin.getEventSchedule().next("double-rewards", 30, System.currentTimeMillis());
+    }
+
+    @Override
+    public String configKey() {
+        return "double-rewards";
+    }
+
+    @Override
+    public String displayName() {
+        double next = running ? multiplier : plugin.getConfig().getDouble("double-rewards.multiplier", DEFAULT_MULTIPLIER);
+        return "§2§l" + label(next) + "X REWARDS";
+    }
+
+    @Override
+    public boolean isScheduled() {
+        return plugin.getConfig().getBoolean("double-rewards.enabled", false);
+    }
+
+    @Override
+    public int lengthMinutes() {
+        return DURATION_MINUTES;
+    }
+
+    @Override
+    public long nextStart() {
+        return nextEvent;
+    }
+
+    @Override
+    public long endsAt() {
+        return running ? endTime : 0;
     }
 
     private void tick() {

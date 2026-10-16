@@ -35,7 +35,7 @@ import java.util.UUID;
  * 落札した人がいなくなっていたら、いる人の中で一番高く入れた人が落札する。いない人には返金しない (pit.wiki)。
  * 落札した人へのチャットは録画に無いので推測。
  */
-public final class AuctionManager implements Listener {
+public final class AuctionManager implements Listener, com.pitremake.event.PitEvent {
 
     /**
      * 開始の音: note.pling (0.78) の 4 音の和音を 5 回 (録画のピッチ)。録画の間隔は 5 tick だが、
@@ -130,9 +130,41 @@ public final class AuctionManager implements Listener {
         return auction != null;
     }
 
-    private void scheduleNext() {
-        double minutes = plugin.getConfig().getDouble("auction.interval-minutes", 15);
-        nextAuction = System.currentTimeMillis() + (long) (minutes * 60_000);
+    /** 次のオークションを時計に合わせて決める (config の auction.interval-minutes / offset-minutes)。 */
+    @Override
+    public void scheduleNext() {
+        nextAuction = plugin.getEventSchedule().next("auction", 15, System.currentTimeMillis());
+    }
+
+    @Override
+    public String configKey() {
+        return "auction";
+    }
+
+    @Override
+    public String displayName() {
+        return "§6§lAUCTION";
+    }
+
+    @Override
+    public boolean isScheduled() {
+        return plugin.getConfig().getBoolean("auction.enabled", false);
+    }
+
+    @Override
+    public int lengthMinutes() {
+        // 60 秒 + 入札での延長
+        return 3;
+    }
+
+    @Override
+    public long nextStart() {
+        return nextAuction;
+    }
+
+    @Override
+    public long endsAt() {
+        return auction == null ? 0 : auction.endTime;
     }
 
     private void tick() {

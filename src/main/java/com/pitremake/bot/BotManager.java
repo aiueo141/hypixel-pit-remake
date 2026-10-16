@@ -289,6 +289,19 @@ public final class BotManager implements Listener {
         return removed;
     }
 
+    public boolean isAuto() {
+        return plugin.getConfig().getBoolean("bots.auto", true);
+    }
+
+    /** /pitbot auto: config の bots.auto を書き換えて保存 (再起動後もそのまま)。オフにしたら今いる Bot も消す。 */
+    public void setAuto(boolean auto) {
+        plugin.getConfig().set("bots.auto", auto);
+        plugin.saveConfig();
+        if (!auto) {
+            removeAll();
+        }
+    }
+
     /** Spire の始まり (true: 全部消す) と終わり (false: また出す)。 */
     public void setPaused(boolean paused) {
         this.paused = paused;

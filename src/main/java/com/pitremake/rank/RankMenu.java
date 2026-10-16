@@ -29,7 +29,8 @@ public final class RankMenu implements ClickMenu {
     static final int MVP_COLOR_SLOT = 50;
     private static final int[] COLOR_SLOTS = {10, 11, 12, 13, 14, 15, 16, 19, 20, 21, 22, 23, 24, 25};
     static final int BACK_SLOT = 31;
-    private static final String ADMIN_PERMISSION = "pit.admin";
+    /** 管理者だけのランク (op と、/pitpermission の rank)。 */
+    private static final String ADMIN_PERMISSION = "pit.rank.admin";
 
     private final PitPlugin plugin;
     private final Player player;

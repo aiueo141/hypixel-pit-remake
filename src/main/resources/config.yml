@@ -46,10 +46,16 @@ leaderboard:
   position: '16.188,117.375,0.5'
   picker: '14.5,114,2.5,111.1'
 
+# Automatic events start on the clock: every interval-minutes, from offset-minutes past the hour (server time).
+# They never drift, so pick offsets that don't overlap (a warning is logged on start / /pit reload if they do).
+# Default hour:  :00 Spire warning (starts :03, ends :08) / :10 Auction / :15 KOTH / :20 2X Rewards
+#                :25 Auction / :40 Auction / :45 KOTH / :50 2X Rewards / :55 Auction.  /events shows what's next.
+
 # Auction minor event (pit.wiki/Auction). The interval is not in the recordings. /pit auction <start|end>
 auction:
   enabled: false
   interval-minutes: 15
+  offset-minutes: 10
   min-players: 1
   # Ticks between the 5 start chords (the recording uses 5; 7 sounds less rushed)
   start-sound-interval-ticks: 7
@@ -82,14 +88,16 @@ backup:
 
 spire:
   enabled: false
-  # Minutes between Spire events (the 3 min warning starts when this runs out). /pit spire <start|now|end>
+  # Spire events (the 3 min warning starts at offset-minutes, the Spire 3 mins later). /pit spire <start|now|end>
   interval-minutes: 60
+  offset-minutes: 0
   min-players: 1
 
 koth:
   enabled: false
-  # Minutes between KOTH events (4 min each; skipped while a Spire is on). /pit koth <start|end>
-  interval-minutes: 20
+  # KOTH events (4 min each; waits while another event is on). /pit koth <start|end>
+  interval-minutes: 30
+  offset-minutes: 15
   min-players: 1
 
 map-template:
@@ -109,7 +117,8 @@ double-rewards:
   # (only Mid for now). The automatic one uses multiplier. /pit multireward <X> start, /pit multireward end
   enabled: false
   multiplier: 2
-  interval-minutes: 20
+  interval-minutes: 30
+  offset-minutes: 20
   min-players: 1
   mid-radius: 15
 

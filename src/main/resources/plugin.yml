@@ -10,19 +10,19 @@ commands:
   fresh:
     description: Gives fresh mystic items
     usage: /<command> <sword|bow|pants <color>|gem|cactus|feather|archangel|armageddon|goldenhelmet|vile|repairkit> [amount]
-    permission: pit.admin
+    permission: pit.cmd.fresh
   menchant:
     description: Adds an enchant to the held mystic item and upgrades its tier
     usage: /<command> <enchant> [level]
-    permission: pit.admin
+    permission: pit.cmd.menchant
   fillmystic:
     description: Fills every empty inventory slot with copies of the held mystic item
     usage: /<command>
-    permission: pit.admin
+    permission: pit.cmd.fillmystic
   instantupgrade:
     description: Upgrades every mystic item in your inventory without the mystic well
     usage: /<command> [tiers]
-    permission: pit.admin
+    permission: pit.cmd.instantupgrade
   trade:
     description: Sends a trade request
     usage: /<command> <player>
@@ -38,14 +38,17 @@ commands:
   auctionmenu:
     description: Opens the auction (while an auction minor event is running)
     usage: /<command>
+  events:
+    description: Shows the running event and when the next events start
+    usage: /<command> [auto [spire|koth|auction|multireward] [on|off]]
   pitbot:
     description: Spawns or removes fake player bots
-    usage: /<command> <spawn [count] [player|spawn]|remove|count|list>
-    permission: pit.admin
+    usage: /<command> <spawn [count] [player|spawn]|remove|auto [on|off]|count|list>
+    permission: pit.cmd.bot
   pitgold:
     description: Manage your gold
     usage: /<command> <set|inc> <amount>
-    permission: pit.admin
+    permission: pit.cmd.gold
   pitnpc:
     description: Places or removes Pit NPCs (Upgrades / Prestige villagers)
     usage: /<command> <spawn <upgrades|prestige>|remove|list>
@@ -60,11 +63,11 @@ commands:
   pitlevel:
     description: Sets your Pit level (for testing prestige)
     usage: /<command> <level>
-    permission: pit.admin
+    permission: pit.cmd.level
   pitstreak:
     description: Sets your killstreak (for testing megastreaks)
     usage: /<command> <amount>
-    permission: pit.admin
+    permission: pit.cmd.streak
   oof:
     description: Dies and goes back to spawn (instead of /kill)
     usage: /<command>
@@ -77,17 +80,73 @@ commands:
   pitprestige:
     description: Sets a player's prestige (for testing; keeps the level)
     usage: /<command> <prestige> [player]
-    permission: pit.admin
+    permission: pit.cmd.prestige
   pitrenown:
     description: Sets your renown (for testing the Renown shop)
     usage: /<command> <amount>
-    permission: pit.admin
+    permission: pit.cmd.renown
   pitbounty:
     description: Sets a player's bounty
     usage: /<command> <amount> [player]
-    permission: pit.admin
+    permission: pit.cmd.bounty
+  pitpermission:
+    description: Gives players permission to use Pit commands (operators only)
+    usage: /<command> <add|remove> <player> <permission...|all> | list [player]
 
 permissions:
   pit.admin:
-    description: Allows admin commands
+    description: Allows admin commands (operators). Includes every permission /pitpermission can give
+    default: op
+    children:
+      pit.cmd.renown: true
+      pit.cmd.prestige: true
+      pit.cmd.level: true
+      pit.cmd.gold: true
+      pit.cmd.streak: true
+      pit.cmd.bounty: true
+      pit.cmd.fresh: true
+      pit.cmd.menchant: true
+      pit.cmd.fillmystic: true
+      pit.cmd.instantupgrade: true
+      pit.cmd.event: true
+      pit.cmd.bot: true
+      pit.rank.admin: true
+  pit.cmd.renown:
+    description: /pitrenown
+    default: op
+  pit.cmd.prestige:
+    description: /pitprestige
+    default: op
+  pit.cmd.level:
+    description: /pitlevel
+    default: op
+  pit.cmd.gold:
+    description: /pitgold
+    default: op
+  pit.cmd.streak:
+    description: /pitstreak
+    default: op
+  pit.cmd.bounty:
+    description: /pitbounty
+    default: op
+  pit.cmd.fresh:
+    description: /fresh
+    default: op
+  pit.cmd.menchant:
+    description: /menchant
+    default: op
+  pit.cmd.fillmystic:
+    description: /fillmystic
+    default: op
+  pit.cmd.instantupgrade:
+    description: /instantupgrade
+    default: op
+  pit.cmd.event:
+    description: /pit spire|koth|auction|multireward|time and /events auto
+    default: op
+  pit.cmd.bot:
+    description: /pitbot
+    default: op
+  pit.rank.admin:
+    description: Can pick the admin-only ranks
     default: op

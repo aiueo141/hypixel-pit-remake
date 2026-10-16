@@ -20,6 +20,8 @@ import java.util.List;
 public final class PitCommand implements CommandExecutor, TabCompleter {
 
     private static final List<String> SUBCOMMANDS = Arrays.asList("reload", "version", "nonce", "damage", "debug", "backup", "time", "auction", "spire", "koth", "multireward", "map");
+    /** イベントをすぐ始める / 終わらせる、昼夜 (/pitpermission の event)。reload・map・backup などは pit.admin (op) だけ。 */
+    private static final String EVENT_PERMISSION = "pit.cmd.event";
 
     private final PitPlugin plugin;
 
@@ -42,6 +44,7 @@ public final class PitCommand implements CommandExecutor, TabCompleter {
                 }
                 plugin.reloadConfig();
                 plugin.loadDamageStacking();
+                plugin.rescheduleEvents(sender);
                 sender.sendMessage(ChatColor.GREEN + "Config reloaded.");
                 return true;
             case "damage":
@@ -121,7 +124,7 @@ public final class PitCommand implements CommandExecutor, TabCompleter {
 
     /** /pit auction <start|end> : オークションをすぐに始める / 終わらせる (確認用)。 */
     private boolean auction(CommandSender sender, String[] args) {
-        if (!sender.hasPermission("pit.admin")) {
+        if (!sender.hasPermission(EVENT_PERMISSION)) {
             sender.sendMessage(ChatColor.RED + "You don't have permission.");
             return true;
         }
@@ -144,6 +147,11 @@ public final class PitCommand implements CommandExecutor, TabCompleter {
 
     /** /pit spire|koth addpos <名前> / removepos / positions : 出す場所 (立っている地面のブロック = 建物の真ん中の真下)。 */
     private boolean positions(CommandSender sender, String[] args, com.pitremake.map.EventPositions positions, String what) {
+        // 出す場所はマップのデータなので op だけ (/pitpermission の event では変えられない)
+        if (!sender.hasPermission("pit.admin")) {
+            sender.sendMessage(ChatColor.RED + "You don't have permission.");
+            return true;
+        }
         String sub = args[1].toLowerCase();
         if (sub.equals("positions")) {
             List<com.pitremake.map.EventPositions.Position> list = positions.list();
@@ -206,7 +214,7 @@ public final class PitCommand implements CommandExecutor, TabCompleter {
      * /pit multireward end : 終わらせる。
      */
     private boolean multiReward(CommandSender sender, String[] args) {
-        if (!sender.hasPermission("pit.admin")) {
+        if (!sender.hasPermission(EVENT_PERMISSION)) {
             sender.sendMessage(ChatColor.RED + "You don't have permission.");
             return true;
         }
@@ -240,7 +248,7 @@ public final class PitCommand implements CommandExecutor, TabCompleter {
 
     /** /pit koth <start|end> : KOTH をすぐに始める / 終わらせる (確認用)。 */
     private boolean koth(CommandSender sender, String[] args) {
-        if (!sender.hasPermission("pit.admin")) {
+        if (!sender.hasPermission(EVENT_PERMISSION)) {
             sender.sendMessage(ChatColor.RED + "You don't have permission.");
             return true;
         }
@@ -266,7 +274,7 @@ public final class PitCommand implements CommandExecutor, TabCompleter {
 
     /** /pit spire <start|now|end> : Spire を 3 分前の予告から / すぐに始める、終わらせる (確認用)。 */
     private boolean spire(CommandSender sender, String[] args) {
-        if (!sender.hasPermission("pit.admin")) {
+        if (!sender.hasPermission(EVENT_PERMISSION)) {
             sender.sendMessage(ChatColor.RED + "You don't have permission.");
             return true;
         }
@@ -304,7 +312,7 @@ public final class PitCommand implements CommandExecutor, TabCompleter {
 
     /** /pit time <day|night> : すぐに夜明け / 日暮れを始める (Night Quest の確認用)。 */
     private boolean time(CommandSender sender, String[] args) {
-        if (!sender.hasPermission("pit.admin")) {
+        if (!sender.hasPermission(EVENT_PERMISSION)) {
             sender.sendMessage(ChatColor.RED + "You don't have permission.");
             return true;
         }

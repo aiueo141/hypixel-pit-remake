@@ -60,7 +60,7 @@ import java.util.logging.Level;
  * Vampire と Barbarian は効かず、キルの回復アイテムは Fractured Soul、アシストの Soup は無し (pit.wiki)。
  * Floor Bonus 成功のチャット、7〜9 階の色は推測。Spire の間は Bot を消し、終わったらまた出す。
  */
-public final class SpireEvent implements Listener, DamageModifier {
+public final class SpireEvent implements Listener, DamageModifier, com.pitremake.event.PitEvent {
 
     private enum Phase { IDLE, WARNING, RUNNING }
 
@@ -212,8 +212,42 @@ public final class SpireEvent implements Listener, DamageModifier {
         return plugin.getServer().getWorlds().get(0);
     }
 
-    private void scheduleNext() {
-        nextEvent = System.currentTimeMillis() + (long) (plugin.getConfig().getDouble("spire.interval-minutes", 60) * 60_000);
+    /** 次の Spire (の予告) を時計に合わせて決める (config の spire.interval-minutes / offset-minutes)。 */
+    @Override
+    public void scheduleNext() {
+        nextEvent = plugin.getEventSchedule().next("spire", 60, System.currentTimeMillis());
+    }
+
+    @Override
+    public String configKey() {
+        return "spire";
+    }
+
+    @Override
+    public String displayName() {
+        return "§5§lSPIRE";
+    }
+
+    @Override
+    public boolean isScheduled() {
+        return available && plugin.getConfig().getBoolean("spire.enabled", false);
+    }
+
+    @Override
+    public int lengthMinutes() {
+        // 予告 3 分 + 本番 5 分
+        return (SpireRules.WARNING_SECONDS + SpireRules.DURATION_SECONDS + 59) / 60;
+    }
+
+    /** 本番の始まり (予告中は予告の終わり、そうでなければ次の予告 + 3 分)。 */
+    @Override
+    public long nextStart() {
+        return phase == Phase.WARNING ? phaseEnd : nextEvent + SpireRules.WARNING_SECONDS * 1000L;
+    }
+
+    @Override
+    public long endsAt() {
+        return phase == Phase.RUNNING ? phaseEnd : 0;
     }
 
     public boolean isRunning() {
