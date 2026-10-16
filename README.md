@@ -1,138 +1,140 @@
 # Hypixel Pit Remake
 
-Hypixel の The Pit を Minecraft 1.8.8 (PaperSpigot) で再現するサーバープラグインです。
-数値・文言・音・GUI は Hypixel の録画 (リプレイ) と [pit.wiki](https://pit.wiki) をもとにしています。
+**English** | [日本語](README.ja.md) | [简体中文](README.zh-CN.md) | [한국어](README.ko.md)
 
-## 必要なもの
+A server plugin that recreates Hypixel's The Pit on Minecraft 1.8.8 (PaperSpigot).
+Numbers, messages, sounds and GUIs are based on recordings (replays) of Hypixel and [pit.wiki](https://pit.wiki).
 
-- JDK 17 以上 (Gradle を動かす用)。Java 8 は Gradle ツールチェーンが自動でダウンロードします
-- Minecraft 1.8.x のクライアント
+## Requirements
 
-## ビルドとテストサーバー
+- JDK 17 or newer (to run Gradle). Java 8 is downloaded automatically by the Gradle toolchain
+- A Minecraft 1.8.x client
+
+## Build and test server
 
 ```powershell
-.\gradlew.bat build       # プラグインをビルド (テストも実行) → build/libs/pit-<version>.jar
-.\gradlew.bat runServer   # ビルドして Paper 1.8.8 のテストサーバーを run/ で起動
+.\gradlew.bat build       # Build the plugin (runs the tests) → build/libs/pit-<version>.jar
+.\gradlew.bat runServer   # Build and start a Paper 1.8.8 test server in run/
 ```
 
-- テストサーバーには `localhost` で接続します
-- コンソールで `op <名前>` を実行すると管理者になります。`stop` で終了します
-- 自分のサーバーで使うときは、jar を Paper 1.8.8 (Java 8 で起動) の `plugins/` に入れるだけです
+- Connect to the test server at `localhost`
+- Run `op <name>` in the console to become an admin. `stop` shuts it down
+- To use it on your own server, just put the jar in `plugins/` of a Paper 1.8.8 server (started with Java 8)
 
-## マップ
+## Map
 
-マップは Seasons だけです。録画から作り直したものがプラグインの中 (`src/main/resources/maps/seasons/`) に入っています。
+Only the Seasons map is included. It was rebuilt from recordings and is bundled in the plugin (`src/main/resources/maps/seasons/`).
 
-- サーバーを起動するたびに、ワールドを読む前にワールドの region をこのマップで上書きします。
-  なので新しいサーバーでもプラグインを入れて起動するだけでマップができ、Spire や KOTH の途中で落ちて地形が変わっても次の起動で元に戻ります
-- `/pit map save` で今の地形を保存すると (`plugins/Pit/map-template/`)、以降はそちらに戻します
-- NPC・スポーン地点・ホログラムの位置は `maps/seasons.yml`、Spire / KOTH / Launcher の位置は `spire/` `koth/` `launcher/` に入っています。
-  サーバー側 (`plugins/Pit/npcs.yml`、`config.yml` の `spawn.points` / `holograms.lines`) に設定があればそちらが優先されます
+- Every time the server starts, the world's region files are overwritten with this map before the world loads.
+  So a new server gets the map just by installing the plugin, and if the server crashes during a Spire or KOTH, the terrain is restored on the next start
+- `/pit map save` saves the current terrain (`plugins/Pit/map-template/`) and it is restored from then on
+- NPC, spawn point and hologram positions are in `maps/seasons.yml`; Spire / KOTH / Launcher positions are in `spire/` `koth/` `launcher/`.
+  Settings on the server (`plugins/Pit/npcs.yml`, `spawn.points` / `holograms.lines` in `config.yml`) take priority if present
 
-## 主な機能
+## Features
 
-- **戦闘**: ダメージ計算 (加算 / 乗算を切り替えられる)、Mystic エンチャント (剣・弓・パンツ・Rage / Dark / Sewer / Aqua)
-- **Mystic**: Mystic Well (強化・Lives・生贄)、Hidden Jewel、Totally Legit Gem、Philosopher's Cactus、Funky Feather、Repair Kit
-- **成長**: パーク・Passive・メガストリーク (Overdrive / Beastmode / Hermit / Highlander / Magnum Opus / To the Moon / Uberstreak)・キルストリーク
-- **プレステージ**: Renown Shop (Upgrades / Perks / Shop Items / Killstreaks / Heresy / Fancy Hat)
-- **ショップ**: Items の村人 (Non-permanent items)・Autobuy・Pants Bundle
-- **イベント**: Spire・KOTH・Auction・2X REWARDS、昼夜と Night Quest (下の「イベント」)
-- **その他**: Quest Master (Quests & Contracts)・リーダーボード・統計メニュー・Profile Viewer・トレード・Item Stash・ランクとチャット
-- バウンティ・キル / アシストの報酬・金インゴット・Bot・バックアップ
+- **Combat**: damage calculation (additive / multiplicative, switchable), Mystic enchants (sword, bow, pants, Rage / Dark / Sewer / Aqua)
+- **Mystics**: Mystic Well (tiering, Lives, sacrifice), Hidden Jewel, Totally Legit Gem, Philosopher's Cactus, Funky Feather, Repair Kit
+- **Progression**: perks, passives, megastreaks (Overdrive / Beastmode / Hermit / Highlander / Magnum Opus / To the Moon / Uberstreak), killstreaks
+- **Prestige**: Renown Shop (Upgrades / Perks / Shop Items / Killstreaks / Heresy / Fancy Hat)
+- **Shop**: Items villager (non-permanent items), Autobuy, Pants Bundle
+- **Events**: Spire, KOTH, Auction, 2X REWARDS, day/night and Night Quests (see "Events" below)
+- **Other**: Quest Master (Quests & Contracts), leaderboards, stats menu, Profile Viewer, trading, Item Stash, ranks and chat
+- Bounties, kill / assist rewards, gold ingots, bots, backups
 
-## イベント
+## Events
 
-自動のイベントは時計に合わせて始まります (config の各イベントの `interval-minutes` ごと、毎時 `offset-minutes` 分から)。
-初期設定では自動イベントはオフ (`enabled: false`) なので、`/events auto on` か config で有効にしてください。
+Automatic events start on the clock (every `interval-minutes` of each event in the config, from `offset-minutes` past the hour).
+Automatic events are off by default (`enabled: false`), so turn them on with `/events auto on` or in the config.
 
-初期の時間割 (重ならないようにしてあります):
+Default schedule (set so nothing overlaps):
 
-| 分 | イベント |
+| Minute | Event |
 | --- | --- |
-| :00 | Spire の予告 (:03 開始、:08 終了) |
+| :00 | Spire warning (starts :03, ends :08) |
 | :10 / :25 / :40 / :55 | Auction |
 | :15 / :45 | KOTH |
 | :20 / :50 | 2X REWARDS |
 
-重なる設定にすると、起動時と `/pit reload` でログに警告が出ます。`/events` で次のイベントまでの時間を見られます。
+If the settings overlap, a warning is logged on startup and on `/pit reload`. `/events` shows the time until the next event.
 
-## コマンド
+## Commands
 
-### プレイヤー
+### Players
 
-| コマンド | 内容 |
+| Command | Description |
 | --- | --- |
-| `/events` | 開催中のイベントと、次のイベントまでの時間 |
-| `/trade <名前>` | トレードを申し込む |
-| `/view <名前>` | Profile Viewer を開く |
-| `/spawn` | スポーンに戻る |
-| `/oof` | 死んでスポーンに戻る |
-| `/cool` | 高プレステージのプレイヤー一覧 |
-| `/pit version` `/pit nonce` | バージョン・手に持ったアイテムの nonce を表示 |
+| `/events` | The running event and the time until the next events |
+| `/trade <name>` | Send a trade request |
+| `/view <name>` | Open the Profile Viewer |
+| `/spawn` | Go back to spawn |
+| `/oof` | Die and go back to spawn |
+| `/cool` | List high prestige players |
+| `/pit version` `/pit nonce` | Show the version / the nonce of the held item |
 
-### 管理者
+### Admins
 
-| コマンド | 内容 |
+| Command | Description |
 | --- | --- |
-| `/pit reload` | 設定を読み直す (イベントの時間割も) |
-| `/pit damage [additive\|multiplicative]` | ダメージの増減の重ね方を見る・変える |
-| `/pit debug` | 自分が与える / 受けるダメージの計算をチャットに出す |
-| `/pit backup` | ワールドと `plugins/Pit` を `backups/` に zip で保存 |
-| `/pit map save` | 今の地形を起動時に戻す元として保存 |
-| `/pit spire <start\|now\|end>` | Spire を予告から / すぐに始める・終わらせる |
-| `/pit koth <start\|end>` | KOTH を始める・終わらせる |
-| `/pit auction <start\|end>` | Auction を始める・終わらせる |
-| `/pit multireward <X> start` / `end` | X 倍報酬のイベントを始める・終わらせる |
-| `/pit time <day\|night>` | すぐに夜明け / 日暮れにする |
-| `/pit <spire\|koth> <addpos <名前>\|removepos\|positions>` | Spire / KOTH を出す場所の管理 |
-| `/events auto [spire\|koth\|auction\|multireward] [on\|off]` | 自動イベントのオン/オフ (名前なしで全部。開催中のものは最後まで続く) |
-| `/fresh <sword\|bow\|pants 色\|gem\|cactus\|feather\|archangel\|armageddon\|goldenhelmet\|vile\|repairkit> [数]` | アイテムを出す |
-| `/menchant <エンチャント> [レベル]` | 手に持った Mystic にエンチャントを付ける |
-| `/fillmystic` | 空きスロットを手に持った Mystic のコピーで埋める |
-| `/instantupgrade [ティア]` | インベントリの Mystic を Well なしで強化 |
-| `/pitbot <spawn [数] [player\|spawn]\|remove\|auto [on\|off]\|count\|list>` | Bot を出す・消す・自動で湧くかのオン/オフ |
-| `/pitnpc <spawn <upgrades\|prestige>\|remove\|list>` | NPC を置く・消す |
-| `/pitspawn <add\|list\|clear\|area <半径> <最低y>\|tp>` | スポーン地点とスポーンの非 PvP 区域 |
-| `/pitgold` `/pitlevel` `/pitprestige` `/pitrenown` `/pitbounty` `/pitstreak` | 数値を変える (テスト用) |
-| `/pitpermission <add\|remove> <名前> <権限...\|all>` / `list [名前]` | op 以外のプレイヤーに権限を付ける・外す |
+| `/pit reload` | Reload the config (including the event schedule) |
+| `/pit damage [additive\|multiplicative]` | Show / change how damage modifiers stack |
+| `/pit debug` | Show the damage calculation of hits you deal / take in chat |
+| `/pit backup` | Zip the world and `plugins/Pit` into `backups/` |
+| `/pit map save` | Save the current terrain as the one restored on startup |
+| `/pit spire <start\|now\|end>` | Start a Spire (with the warning / right away) or end it |
+| `/pit koth <start\|end>` | Start / end a KOTH |
+| `/pit auction <start\|end>` | Start / end an Auction |
+| `/pit multireward <X> start` / `end` | Start / end an X times rewards event |
+| `/pit time <day\|night>` | Start dawn / dusk right away |
+| `/pit <spire\|koth> <addpos <name>\|removepos\|positions>` | Manage where Spires / KOTHs appear |
+| `/events auto [spire\|koth\|auction\|multireward] [on\|off]` | Turn automatic events on / off (all without a name; a running event finishes) |
+| `/fresh <sword\|bow\|pants color\|gem\|cactus\|feather\|archangel\|armageddon\|goldenhelmet\|vile\|repairkit> [amount]` | Give items |
+| `/menchant <enchant> [level]` | Add an enchant to the held Mystic |
+| `/fillmystic` | Fill empty slots with copies of the held Mystic |
+| `/instantupgrade [tiers]` | Upgrade the Mystics in your inventory without the Well |
+| `/pitbot <spawn [count] [player\|spawn]\|remove\|auto [on\|off]\|count\|list>` | Spawn / remove bots, turn automatic bots on / off |
+| `/pitnpc <spawn <upgrades\|prestige>\|remove\|list>` | Place / remove NPCs |
+| `/pitspawn <add\|list\|clear\|area <radius> <min-y>\|tp>` | Spawn points and the no-PvP spawn area |
+| `/pitgold` `/pitlevel` `/pitprestige` `/pitrenown` `/pitbounty` `/pitstreak` | Change values (for testing) |
+| `/pitpermission <add\|remove> <name> <permission...\|all>` / `list [name]` | Give / take permissions to non-op players |
 
-## 権限
+## Permissions
 
-管理者のコマンドは op なら全部使えます。op でないプレイヤーには `/pitpermission` で一部だけ許可できます (`plugins/Pit/permissions.yml` に保存)。
+Operators can use every admin command. Non-op players can be allowed some of them with `/pitpermission` (saved in `plugins/Pit/permissions.yml`).
 
-| 名前 | 使えるようになるもの |
+| Name | Allows |
 | --- | --- |
-| `renown` `prestige` `level` `gold` `streak` `bounty` | それぞれの `/pit...` コマンド |
-| `fresh` `menchant` `fillmystic` `instantupgrade` `bot` | それぞれのコマンド |
-| `event` | `/pit spire\|koth\|auction\|multireward\|time` の開始・終了と `/events auto` |
-| `rank` | 管理者だけのランク |
-| `supporter` | Fancy Hat の Supporter |
+| `renown` `prestige` `level` `gold` `streak` `bounty` | The matching `/pit...` command |
+| `fresh` `menchant` `fillmystic` `instantupgrade` `bot` | The matching command |
+| `event` | Starting / ending `/pit spire\|koth\|auction\|multireward\|time` and `/events auto` |
+| `rank` | The admin-only rank |
+| `supporter` | The Supporter Fancy Hat |
 
-`/pit reload|damage|debug|backup|map`、Spire / KOTH の場所、`/pitnpc`、`/pitspawn`、`/pitpermission` は op だけが使えます。
+`/pit reload|damage|debug|backup|map`, Spire / KOTH positions, `/pitnpc`, `/pitspawn` and `/pitpermission` are op only.
 
-## 構成
+## Layout
 
 ```
 src/main/java/com/pitremake/
-├── PitPlugin.java          メインクラス
-├── combat/                 ダメージ計算・エンチャントの効果
-├── enchant/                エンチャントの登録と説明文
+├── PitPlugin.java          Main class
+├── combat/                 Damage calculation, enchant effects
+├── enchant/                Enchant registry and descriptions
 ├── well/                   Mystic Well
-├── gem/ special/           Totally Legit Gem・特別なアイテム
-├── upgrade/ perk/          パーク・Passive・メガストリーク・キルストリーク
-├── prestige/ renown/       プレステージ・Renown Shop
-├── shop/                   Items の村人
-├── stats/ gold/ bounty/    キル・XP・ゴールド・バウンティ・統計
-├── event/                  自動イベントの時間割
-├── spire/ koth/ auction/ rewards/ night/   各イベント・昼夜
-├── quest/ leaderboard/     Quest Master・リーダーボード
-├── trade/ stash/           トレード・Item Stash
-├── rank/ permission/       ランク・チャット・権限
-├── map/ spawn/ npc/ hologram/   マップ・スポーン・Launcher・NPC・ホログラム
-├── bot/                    Bot
-└── data/                   プレイヤーごとのデータ・バックアップ
+├── gem/ special/           Totally Legit Gem, special items
+├── upgrade/ perk/          Perks, passives, megastreaks, killstreaks
+├── prestige/ renown/       Prestige, Renown Shop
+├── shop/                   Items villager
+├── stats/ gold/ bounty/    Kills, XP, gold, bounties, stats
+├── event/                  Automatic event schedule
+├── spire/ koth/ auction/ rewards/ night/   Events, day/night
+├── quest/ leaderboard/     Quest Master, leaderboards
+├── trade/ stash/           Trading, Item Stash
+├── rank/ permission/       Ranks, chat, permissions
+├── map/ spawn/ npc/ hologram/   Map, spawn, launchers, NPCs, holograms
+├── bot/                    Bots
+└── data/                   Per-player data, backups
 src/main/resources/
-├── maps/                   マップ (region) と NPC・スポーン・ホログラムの位置
-└── spire/ koth/ launcher/  イベントと Launcher の位置
-docs/DATA_STORAGE.md        データの保存先とサーバー運用
+├── maps/                   Map (region) and NPC / spawn / hologram positions
+└── spire/ koth/ launcher/  Event and launcher positions
+docs/DATA_STORAGE.md        Where data is stored, running the server (Japanese)
 ```
