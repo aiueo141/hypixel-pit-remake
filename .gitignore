@@ -19,3 +19,6 @@ run/
 *.log
 *.mcrc
 backups/
+
+# Local notes
+docs/

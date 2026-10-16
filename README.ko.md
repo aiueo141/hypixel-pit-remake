@@ -135,7 +135,6 @@ src/main/java/com/pitremake/
 src/main/resources/
 ├── maps/                   맵 (region)과 NPC / 스폰 / 홀로그램 위치
 └── spire/ koth/ launcher/  이벤트와 런처 위치
-docs/DATA_STORAGE.md        데이터 저장 위치와 서버 운영 (일본어)
 ```
 
 ## 미구현 인챈트

@@ -135,7 +135,6 @@ src/main/java/com/pitremake/
 src/main/resources/
 ├── maps/                   地图 (region) 以及 NPC / 出生点 / 全息文字的位置
 └── spire/ koth/ launcher/  活动和弹射器的位置
-docs/DATA_STORAGE.md        数据存储位置与服务器运维 (日语)
 ```
 
 ## 未实现的附魔

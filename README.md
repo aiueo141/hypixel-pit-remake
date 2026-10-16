@@ -135,7 +135,6 @@ src/main/java/com/pitremake/
 src/main/resources/
 ├── maps/                   Map (region) and NPC / spawn / hologram positions
 └── spire/ koth/ launcher/  Event and launcher positions
-docs/DATA_STORAGE.md        Where data is stored, running the server (Japanese)
 ```
 
 ## Unimplemented enchants

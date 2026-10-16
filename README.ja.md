@@ -135,7 +135,6 @@ src/main/java/com/pitremake/
 src/main/resources/
 ├── maps/                   マップ (region) と NPC・スポーン・ホログラムの位置
 └── spire/ koth/ launcher/  イベントと Launcher の位置
-docs/DATA_STORAGE.md        データの保存先とサーバー運用
 ```
 
 ## 未実装のエンチャント

@@ -28,7 +28,7 @@ import java.util.zip.ZipOutputStream;
  *    サーバーのフォルダの backups/pit-日付-時刻.zip にまとめる
  * 3. 古いものは backup.keep 個だけ残す
  * </pre>
- * 戻すときはサーバーを止めて zip を展開し、ワールドと plugins/Pit を置き換える (docs/DATA_STORAGE.md)。
+ * 戻すときはサーバーを止めて zip を展開し、ワールドと plugins/Pit を置き換える。
  */
 public final class BackupManager {
 
