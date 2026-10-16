@@ -33,7 +33,7 @@ Only the Seasons map is included. It was rebuilt from recordings and is bundled 
 
 ## Features
 
-- **Combat**: damage calculation (additive / multiplicative, switchable), Mystic enchants (sword, bow, pants, Rage / Dark / Sewer / Aqua)
+- **Combat**: damage calculation (additive / multiplicative, switchable; additive is how the real Pit calculates damage and is the default), Mystic enchants (sword, bow, pants, Rage / Dark / Sewer / Aqua)
 - **Mystics**: Mystic Well (tiering, Lives, sacrifice), Hidden Jewel, Totally Legit Gem, Philosopher's Cactus, Funky Feather, Repair Kit
 - **Progression**: perks, passives, megastreaks (Overdrive / Beastmode / Hermit / Highlander / Magnum Opus / To the Moon / Uberstreak), killstreaks
 - **Prestige**: Renown Shop (Upgrades / Perks / Shop Items / Killstreaks / Heresy / Fancy Hat)

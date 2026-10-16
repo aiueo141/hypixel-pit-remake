@@ -33,7 +33,7 @@ Hypixel の The Pit を Minecraft 1.8.8 (PaperSpigot) で再現するサーバ�
 
 ## 主な機能
 
-- **戦闘**: ダメージ計算 (加算 / 乗算を切り替えられる)、Mystic エンチャント (剣・弓・パンツ・Rage / Dark / Sewer / Aqua)
+- **戦闘**: ダメージ計算 (加算 / 乗算を切り替えられる。加算が本来の Pit の計算方法で、初期設定も加算)、Mystic エンチャント (剣・弓・パンツ・Rage / Dark / Sewer / Aqua)
 - **Mystic**: Mystic Well (強化・Lives・生贄)、Hidden Jewel、Totally Legit Gem、Philosopher's Cactus、Funky Feather、Repair Kit
 - **成長**: パーク・Passive・メガストリーク (Overdrive / Beastmode / Hermit / Highlander / Magnum Opus / To the Moon / Uberstreak)・キルストリーク
 - **プレステージ**: Renown Shop (Upgrades / Perks / Shop Items / Killstreaks / Heresy / Fancy Hat)

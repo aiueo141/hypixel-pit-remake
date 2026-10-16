@@ -33,7 +33,7 @@
 
 ## 主要功能
 
-- **战斗**: 伤害计算 (可切换加法 / 乘法叠加)、Mystic 附魔 (剑、弓、裤子、Rage / Dark / Sewer / Aqua)
+- **战斗**: 伤害计算 (可切换加法 / 乘法叠加;加法是原版 Pit 的计算方式,也是默认设置)、Mystic 附魔 (剑、弓、裤子、Rage / Dark / Sewer / Aqua)
 - **Mystic**: Mystic Well (升级、Lives、献祭)、Hidden Jewel、Totally Legit Gem、Philosopher's Cactus、Funky Feather、Repair Kit
 - **成长**: 天赋 (Perk)、被动 (Passive)、超级连杀 (Overdrive / Beastmode / Hermit / Highlander / Magnum Opus / To the Moon / Uberstreak)、连杀奖励
 - **转生 (Prestige)**: Renown Shop (Upgrades / Perks / Shop Items / Killstreaks / Heresy / Fancy Hat)

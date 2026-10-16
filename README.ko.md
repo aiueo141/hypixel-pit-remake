@@ -33,7 +33,7 @@ Hypixel의 The Pit을 Minecraft 1.8.8 (PaperSpigot)에서 재현하는 서버 �
 
 ## 주요 기능
 
-- **전투**: 데미지 계산 (합연산 / 곱연산 전환 가능), Mystic 인챈트 (검, 활, 바지, Rage / Dark / Sewer / Aqua)
+- **전투**: 데미지 계산 (합연산 / 곱연산 전환 가능. 합연산이 원래 Pit의 계산 방식이며 기본값도 합연산), Mystic 인챈트 (검, 활, 바지, Rage / Dark / Sewer / Aqua)
 - **Mystic**: Mystic Well (강화, Lives, 희생), Hidden Jewel, Totally Legit Gem, Philosopher's Cactus, Funky Feather, Repair Kit
 - **성장**: 퍽, 패시브, 메가스트릭 (Overdrive / Beastmode / Hermit / Highlander / Magnum Opus / To the Moon / Uberstreak), 킬스트릭
 - **프레스티지**: Renown Shop (Upgrades / Perks / Shop Items / Killstreaks / Heresy / Fancy Hat)
