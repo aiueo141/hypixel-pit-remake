@@ -137,3 +137,17 @@ src/main/resources/
 └── spire/ koth/ launcher/  イベントと Launcher の位置
 docs/DATA_STORAGE.md        データの保存先とサーバー運用
 ```
+
+## 未実装のエンチャント
+
+次のエンチャントは存在します (アイテムに付き、説明文も出ます) が、まだ効果がありません。
+
+| 種類 | エンチャント |
+| --- | --- |
+| Sword | Combo: XP |
+| Bow | Push comes to shove, What doesn't kill you |
+| Pants | Negotiator, Steaks, Assassin, Martyrdom, Retro-Gravity Microcosm, Snowballs, Wolf Pack |
+| Rage | Really Toxic, Think of the People |
+| Dark | Hedge Fund, Lycanthropy, Golden Handcuffs, Heartripper |
+| Sewer | Aegis, Worm, Trash Panda |
+| Aqua | Club Rod, Grandmaster, Luck of the Pond, Portable Pond, Rodback, Rogue, Tough Crew, Trophy, Unite, Stereo |

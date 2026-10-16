@@ -137,3 +137,17 @@ src/main/resources/
 └── spire/ koth/ launcher/  Event and launcher positions
 docs/DATA_STORAGE.md        Where data is stored, running the server (Japanese)
 ```
+
+## Unimplemented enchants
+
+These enchants exist (they can be on items and show their description) but have no effect yet.
+
+| Type | Enchants |
+| --- | --- |
+| Sword | Combo: XP |
+| Bow | Push comes to shove, What doesn't kill you |
+| Pants | Negotiator, Steaks, Assassin, Martyrdom, Retro-Gravity Microcosm, Snowballs, Wolf Pack |
+| Rage | Really Toxic, Think of the People |
+| Dark | Hedge Fund, Lycanthropy, Golden Handcuffs, Heartripper |
+| Sewer | Aegis, Worm, Trash Panda |
+| Aqua | Club Rod, Grandmaster, Luck of the Pond, Portable Pond, Rodback, Rogue, Tough Crew, Trophy, Unite, Stereo |

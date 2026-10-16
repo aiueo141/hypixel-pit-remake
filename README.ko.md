@@ -137,3 +137,17 @@ src/main/resources/
 └── spire/ koth/ launcher/  이벤트와 런처 위치
 docs/DATA_STORAGE.md        데이터 저장 위치와 서버 운영 (일본어)
 ```
+
+## 미구현 인챈트
+
+다음 인챈트는 존재하지만 (아이템에 붙고 설명도 나옵니다) 아직 효과가 없습니다.
+
+| 종류 | 인챈트 |
+| --- | --- |
+| Sword | Combo: XP |
+| Bow | Push comes to shove, What doesn't kill you |
+| Pants | Negotiator, Steaks, Assassin, Martyrdom, Retro-Gravity Microcosm, Snowballs, Wolf Pack |
+| Rage | Really Toxic, Think of the People |
+| Dark | Hedge Fund, Lycanthropy, Golden Handcuffs, Heartripper |
+| Sewer | Aegis, Worm, Trash Panda |
+| Aqua | Club Rod, Grandmaster, Luck of the Pond, Portable Pond, Rodback, Rogue, Tough Crew, Trophy, Unite, Stereo |

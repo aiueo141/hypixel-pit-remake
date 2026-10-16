@@ -137,3 +137,17 @@ src/main/resources/
 └── spire/ koth/ launcher/  活动和弹射器的位置
 docs/DATA_STORAGE.md        数据存储位置与服务器运维 (日语)
 ```
+
+## 未实现的附魔
+
+以下附魔已存在 (可以出现在物品上,也会显示说明),但还没有效果。
+
+| 类型 | 附魔 |
+| --- | --- |
+| Sword | Combo: XP |
+| Bow | Push comes to shove, What doesn't kill you |
+| Pants | Negotiator, Steaks, Assassin, Martyrdom, Retro-Gravity Microcosm, Snowballs, Wolf Pack |
+| Rage | Really Toxic, Think of the People |
+| Dark | Hedge Fund, Lycanthropy, Golden Handcuffs, Heartripper |
+| Sewer | Aegis, Worm, Trash Panda |
+| Aqua | Club Rod, Grandmaster, Luck of the Pond, Portable Pond, Rodback, Rogue, Tough Crew, Trophy, Unite, Stereo |
