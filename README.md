@@ -3,7 +3,6 @@
 **English** | [日本語](README.ja.md) | [简体中文](README.zh-CN.md) | [한국어](README.ko.md)
 
 A server plugin that recreates Hypixel's The Pit on Minecraft 1.8.8 (PaperSpigot).
-Numbers, messages, sounds and GUIs are based on recordings (replays) of Hypixel and [pit.wiki](https://pit.wiki).
 
 ## Requirements
 

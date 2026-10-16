@@ -3,7 +3,6 @@
 [English](README.md) | [日本語](README.ja.md) | **简体中文** | [한국어](README.ko.md)
 
 在 Minecraft 1.8.8 (PaperSpigot) 上复刻 Hypixel 的 The Pit 的服务器插件。
-数值、文字、音效和 GUI 均基于 Hypixel 的录像 (回放) 和 [pit.wiki](https://pit.wiki)。
 
 ## 环境要求
 

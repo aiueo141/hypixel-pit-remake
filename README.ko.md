@@ -3,7 +3,6 @@
 [English](README.md) | [日本語](README.ja.md) | [简体中文](README.zh-CN.md) | **한국어**
 
 Hypixel의 The Pit을 Minecraft 1.8.8 (PaperSpigot)에서 재현하는 서버 플러그인입니다.
-수치, 문구, 소리, GUI는 Hypixel 녹화 (리플레이)와 [pit.wiki](https://pit.wiki)를 바탕으로 했습니다.
 
 ## 필요한 것
 
